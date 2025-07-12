@@ -213,7 +213,7 @@ export default function OperatorDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           <a href="/operators/global-catalog" className="block">
             <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
@@ -240,16 +240,29 @@ export default function OperatorDashboard() {
             </div>
           </a>
 
-          <a href="/operators/add-product" className="block">
+          <a href="/operators/global-machine-templates" className="block">
+            <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
+              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Machine Templates</h3>
+              <p className="text-gray-600 mb-4">Browse and add machine templates</p>
+              <div className="text-sm text-orange-600">Browse Templates →</div>
+            </div>
+          </a>
+
+          <a href="/operators/machine-templates" className="block">
             <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
                 <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Add New Product</h3>
-              <p className="text-gray-600 mb-4">Contribute to the global product catalog</p>
-              <div className="text-sm text-purple-600">Add Product →</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">My Machine Templates</h3>
+              <p className="text-gray-600 mb-4">Manage your company's machine templates</p>
+              <div className="text-sm text-purple-600">Manage Templates →</div>
             </div>
           </a>
         </div>

@@ -8,12 +8,14 @@ interface AuthContextType {
   user: User | null
   loading: boolean
   isAdmin: boolean
+  isOperator: boolean
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   isAdmin: false,
+  isOperator: false,
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -51,6 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     loading,
     isAdmin: user?.role === 'admin',
+    isOperator: user?.role === 'operator',
   }
 
   return (

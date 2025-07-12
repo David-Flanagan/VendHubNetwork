@@ -313,60 +313,77 @@ export default function CompanyCatalogPage() {
           </div>
         </div>
 
-        {/* Search and Filters */}
+        {/* Enhanced Search and Filters */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
-          <div className="space-y-4">
-            {/* Search */}
+          <div className="space-y-6">
+            {/* Search Bar */}
             <div>
               <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
-                Search Products
+                🔍 Search Your Products
               </label>
-              <input
-                type="text"
-                id="search"
-                placeholder="Search by brand name, product name, or description..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  id="search"
+                  placeholder="Search by brand name, product name, or description..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
             </div>
 
             {/* Product Type Filters */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Filter by Product Type
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                🏷️ Filter by Category
               </label>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setSelectedProductType('all')}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
                     selectedProductType === 'all'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-sm'
                   }`}
                 >
-                  All Types
+                  All Categories ({allProducts.length})
                 </button>
-                {productTypes.map(type => (
-                  <button
-                    key={type.id}
-                    onClick={() => setSelectedProductType(type.id)}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                      selectedProductType === type.id
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {type.name}
-                  </button>
-                ))}
+                {productTypes.map(type => {
+                  const count = allProducts.filter(p => p.product_type_id === type.id).length
+                  return (
+                    <button
+                      key={type.id}
+                      onClick={() => setSelectedProductType(type.id)}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                        selectedProductType === type.id
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-sm'
+                      }`}
+                    >
+                      {type.name} ({count})
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
-            {/* Results Count and Clear Filters */}
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                Showing {products.length} of {allProducts.length} products
+            {/* Results Summary and Actions */}
+            <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+              <div className="flex items-center space-x-4">
+                <div className="text-sm text-gray-600">
+                  📊 Showing <span className="font-semibold text-gray-900">{products.length}</span> of <span className="font-semibold text-gray-900">{allProducts.length}</span> products
+                </div>
+                {searchTerm && (
+                  <div className="text-sm text-blue-600">
+                    🔍 Searching for: <span className="font-medium">"{searchTerm}"</span>
+                  </div>
+                )}
               </div>
               {(searchTerm || selectedProductType !== 'all') && (
                 <button
@@ -374,9 +391,12 @@ export default function CompanyCatalogPage() {
                     setSearchTerm('')
                     setSelectedProductType('all')
                   }}
-                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-1"
                 >
-                  Clear all filters
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span>Clear filters</span>
                 </button>
               )}
             </div>

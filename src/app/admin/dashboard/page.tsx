@@ -1,57 +1,23 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
+import { signOut } from '@/lib/auth'
 import Link from 'next/link'
 
-interface User {
-  id: string
-  email: string
-  role: string
-}
-
 export default function AdminDashboard() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { user, loading, isAdmin } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    checkUser()
-  }, [])
-
-  const checkUser = async () => {
-    try {
-      const { data: { user: authUser } } = await supabase.auth.getUser()
-      
-      if (!authUser) {
-        router.push('/admin/login')
-        return
-      }
-
-      // Check if user has admin role
-      const { data: userData, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', authUser.id)
-        .single()
-
-      if (error || userData?.role !== 'admin') {
-        router.push('/admin/login')
-        return
-      }
-
-      setUser(userData)
-    } catch (error) {
-      console.error('Error checking user:', error)
+    if (!loading && !isAdmin) {
       router.push('/admin/login')
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [loading, isAdmin, router])
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
+    await signOut()
     router.push('/admin/login')
   }
 
@@ -61,6 +27,10 @@ export default function AdminDashboard() {
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     )
+  }
+
+  if (!isAdmin) {
+    return null
   }
 
   return (
@@ -166,16 +136,16 @@ export default function AdminDashboard() {
             </div>
           </Link>
 
-          <Link href="/admin/machines" className="block">
+          <Link href="/admin/machine-categories" className="block">
             <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
               <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
                 <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Machine Templates</h3>
-              <p className="text-gray-600 mb-4">Define standard vending machine configurations</p>
-              <div className="text-sm text-green-600">Manage Templates →</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Machine Categories</h3>
+              <p className="text-gray-600 mb-4">Manage vending machine categories</p>
+              <div className="text-sm text-green-600">Manage Categories →</div>
             </div>
           </Link>
 

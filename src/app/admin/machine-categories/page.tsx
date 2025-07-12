@@ -5,16 +5,16 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 
-interface ProductType {
+interface MachineCategory {
   id: string
   name: string
   description: string | null
   created_at: string
 }
 
-export default function ProductTypesPage() {
+export default function MachineCategoriesPage() {
   const { loading: authLoading, isAdmin } = useAuth()
-  const [productTypes, setProductTypes] = useState<ProductType[]>([])
+  const [machineCategories, setMachineCategories] = useState<MachineCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -28,22 +28,22 @@ export default function ProductTypesPage() {
       return
     }
     if (isAdmin) {
-      loadProductTypes()
+      loadMachineCategories()
     }
   }, [authLoading, isAdmin, router])
 
-  const loadProductTypes = async () => {
+  const loadMachineCategories = async () => {
     try {
       const { data, error } = await supabase
-        .from('product_types')
+        .from('machine_categories')
         .select('*')
         .order('name')
 
       if (error) throw error
-      setProductTypes(data || [])
+      setMachineCategories(data || [])
     } catch (error: any) {
-      setError('Failed to load product types')
-      console.error('Error loading product types:', error)
+      setError('Failed to load machine categories')
+      console.error('Error loading machine categories:', error)
     } finally {
       setLoading(false)
     }
@@ -60,9 +60,9 @@ export default function ProductTypesPage() {
 
     try {
       if (editingId) {
-        // Update existing product type
+        // Update existing machine category
         const { error } = await supabase
-          .from('product_types')
+          .from('machine_categories')
           .update({
             name: formData.name.trim(),
             description: formData.description.trim() || null
@@ -71,9 +71,9 @@ export default function ProductTypesPage() {
 
         if (error) throw error
       } else {
-        // Create new product type
+        // Create new machine category
         const { error } = await supabase
-          .from('product_types')
+          .from('machine_categories')
           .insert({
             name: formData.name.trim(),
             description: formData.description.trim() || null
@@ -85,47 +85,47 @@ export default function ProductTypesPage() {
       setFormData({ name: '', description: '' })
       setShowAddForm(false)
       setEditingId(null)
-      loadProductTypes()
+      loadMachineCategories()
     } catch (error: any) {
-      setError(error.message || 'Failed to save product type')
+      setError(error.message || 'Failed to save machine category')
     }
   }
 
-  const handleEdit = (productType: ProductType) => {
-    setEditingId(productType.id)
+  const handleEdit = (machineCategory: MachineCategory) => {
+    setEditingId(machineCategory.id)
     setFormData({
-      name: productType.name,
-      description: productType.description || ''
+      name: machineCategory.name,
+      description: machineCategory.description || ''
     })
     setShowAddForm(true)
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this product type?')) return
+    if (!confirm('Are you sure you want to delete this machine category?')) return
 
     try {
-      // Check if any products use this type
-      const { data: products, error: checkError } = await supabase
-        .from('global_products')
+      // Check if any machine templates use this category
+      const { data: templates, error: checkError } = await supabase
+        .from('machine_templates')
         .select('id')
-        .eq('product_type_id', id)
+        .eq('category_id', id)
 
       if (checkError) throw checkError
 
-      if (products && products.length > 0) {
-        setError('Cannot delete: This product type is used by existing products')
+      if (templates && templates.length > 0) {
+        setError('Cannot delete: This machine category is used by existing machine templates')
         return
       }
 
       const { error } = await supabase
-        .from('product_types')
+        .from('machine_categories')
         .delete()
         .eq('id', id)
 
       if (error) throw error
-      loadProductTypes()
+      loadMachineCategories()
     } catch (error: any) {
-      setError(error.message || 'Failed to delete product type')
+      setError(error.message || 'Failed to delete machine category')
     }
   }
 
@@ -136,7 +136,7 @@ export default function ProductTypesPage() {
     setError('')
   }
 
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
@@ -144,23 +144,19 @@ export default function ProductTypesPage() {
     )
   }
 
-  if (!isAdmin) {
-    return null
-  }
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Product Types</h1>
-            <p className="text-gray-600 mt-2">Manage product categories for the global catalog</p>
+            <h1 className="text-3xl font-bold text-gray-900">Machine Categories</h1>
+            <p className="text-gray-600 mt-2">Manage vending machine categories for templates</p>
           </div>
           <button
             onClick={() => setShowAddForm(true)}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
-            Add Product Type
+            Add Machine Category
           </button>
         </div>
       </div>
@@ -174,7 +170,7 @@ export default function ProductTypesPage() {
       {showAddForm && (
         <div className="mb-8 bg-white p-6 rounded-lg shadow-sm border">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            {editingId ? 'Edit Product Type' : 'Add New Product Type'}
+            {editingId ? 'Edit Machine Category' : 'Add New Machine Category'}
           </h2>
           <form onSubmit={handleSubmit}>
             <div className="grid md:grid-cols-2 gap-4">
@@ -187,7 +183,7 @@ export default function ProductTypesPage() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter product type name"
+                  placeholder="Enter machine category name"
                   required
                 />
               </div>
@@ -225,11 +221,11 @@ export default function ProductTypesPage() {
 
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Product Types ({productTypes.length})</h3>
+          <h3 className="text-lg font-medium text-gray-900">Machine Categories ({machineCategories.length})</h3>
         </div>
-        {productTypes.length === 0 ? (
+        {machineCategories.length === 0 ? (
           <div className="px-6 py-8 text-center text-gray-500">
-            No product types found. Create your first product type to get started.
+            No machine categories found. Create your first machine category to get started.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -251,26 +247,26 @@ export default function ProductTypesPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {productTypes.map((productType) => (
-                  <tr key={productType.id} className="hover:bg-gray-50">
+                {machineCategories.map((machineCategory) => (
+                  <tr key={machineCategory.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {productType.name}
+                      {machineCategory.name}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
-                      {productType.description || '-'}
+                      {machineCategory.description || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(productType.created_at).toLocaleDateString()}
+                      {new Date(machineCategory.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
-                        onClick={() => handleEdit(productType)}
+                        onClick={() => handleEdit(machineCategory)}
                         className="text-blue-600 hover:text-blue-900 mr-4"
                       >
                         Edit
                       </button>
                       <button
-                        onClick={() => handleDelete(productType.id)}
+                        onClick={() => handleDelete(machineCategory.id)}
                         className="text-red-600 hover:text-red-900"
                       >
                         Delete

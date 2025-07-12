@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { User, getCurrentUser, onAuthStateChange } from '@/lib/auth'
+import { UserRoleType } from '@/types'
 
 interface AuthContextType {
   user: User | null
@@ -23,10 +24,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Check initial auth state
     const checkAuth = async () => {
       try {
+        console.log('AuthContext: Checking initial auth state')
         const currentUser = await getCurrentUser()
+        console.log('AuthContext: Current user set to:', currentUser?.email, 'Role:', currentUser?.role)
         setUser(currentUser)
       } catch (error) {
-        console.error('Error checking auth:', error)
+        console.error('AuthContext: Error checking auth:', error)
       } finally {
         setLoading(false)
       }
@@ -36,6 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen for auth state changes
     const { data: { subscription } } = onAuthStateChange((user) => {
+      console.log('AuthContext: Auth state changed, user:', user?.email, 'Role:', user?.role)
       setUser(user)
       setLoading(false)
     })

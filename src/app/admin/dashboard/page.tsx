@@ -1,27 +1,80 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { signOut } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+
+interface DashboardStats {
+  globalProducts: number
+  machineTemplates: number
+  productTypes: number
+  users: number
+}
 
 export default function AdminDashboard() {
   const { user, loading, isAdmin } = useAuth()
   const router = useRouter()
+  const [stats, setStats] = useState<DashboardStats>({
+    globalProducts: 0,
+    machineTemplates: 0,
+    productTypes: 0,
+    users: 0
+  })
+  const [loadingStats, setLoadingStats] = useState(true)
 
   useEffect(() => {
+    console.log('AdminDashboard: loading=', loading, 'isAdmin=', isAdmin, 'user=', user?.email)
     if (!loading && !isAdmin) {
+      console.log('AdminDashboard: Redirecting to login - not admin')
       router.push('/admin/login')
     }
-  }, [loading, isAdmin, router])
+  }, [loading, isAdmin, router, user])
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchDashboardStats()
+    }
+  }, [isAdmin])
+
+  const fetchDashboardStats = async () => {
+    try {
+      setLoadingStats(true)
+      
+      // Fetch counts for all stats
+      const [
+        { count: globalProducts },
+        { count: machineTemplates },
+        { count: productTypes },
+        { count: users }
+      ] = await Promise.all([
+        supabase.from('global_products').select('*', { count: 'exact', head: true }),
+        supabase.from('machine_templates').select('*', { count: 'exact', head: true }),
+        supabase.from('product_types').select('*', { count: 'exact', head: true }),
+        supabase.from('users').select('*', { count: 'exact', head: true })
+      ])
+
+      setStats({
+        globalProducts: globalProducts || 0,
+        machineTemplates: machineTemplates || 0,
+        productTypes: productTypes || 0,
+        users: users || 0
+      })
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error)
+    } finally {
+      setLoadingStats(false)
+    }
+  }
 
   const handleSignOut = async () => {
     await signOut()
     router.push('/admin/login')
   }
 
-  if (loading) {
+  if (loading || loadingStats) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
@@ -73,7 +126,7 @@ export default function AdminDashboard() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Global Products</p>
-                <p className="text-2xl font-semibold text-gray-900">0</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats.globalProducts}</p>
               </div>
             </div>
           </div>
@@ -87,7 +140,7 @@ export default function AdminDashboard() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Machine Templates</p>
-                <p className="text-2xl font-semibold text-gray-900">0</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats.machineTemplates}</p>
               </div>
             </div>
           </div>
@@ -100,8 +153,8 @@ export default function AdminDashboard() {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Categories</p>
-                <p className="text-2xl font-semibold text-gray-900">0</p>
+                <p className="text-sm font-medium text-gray-600">Product Types</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats.productTypes}</p>
               </div>
             </div>
           </div>
@@ -115,7 +168,7 @@ export default function AdminDashboard() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Users</p>
-                <p className="text-2xl font-semibold text-gray-900">1</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats.users}</p>
               </div>
             </div>
           </div>

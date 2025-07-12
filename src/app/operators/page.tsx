@@ -1,9 +1,71 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+
 export default function OperatorsPage() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    checkAuth()
+  }, [])
+
+  const checkAuth = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (user) {
+        // User is logged in, check if they're an operator
+        const { data: userData, error } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+
+        if (!error && userData?.role === 'operator') {
+          // Redirect to operator dashboard
+          router.push('/operators/dashboard')
+          return
+        }
+      }
+    } catch (error) {
+      console.error('Auth check error:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600"></div>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Operators Panel</h1>
         <p className="text-gray-600 mt-2">Manage your vending machine operations and company profile</p>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="mb-8 flex space-x-4">
+        <a
+          href="/operators/login"
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+        >
+          Operator Login
+        </a>
+        <a
+          href="/operators/register"
+          className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+        >
+          Register Company
+        </a>
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -30,8 +92,25 @@ export default function OperatorsPage() {
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Product Catalog</h3>
           <p className="text-gray-600 mb-4">Manage your company's product offerings and pricing</p>
-          <div className="text-sm text-gray-500">
-            Status: <span className="text-yellow-600">Pending Implementation</span>
+          <div className="flex space-x-2 mt-4">
+            <a
+              href="/operators/catalog"
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200"
+            >
+              View Catalog
+            </a>
+            <a
+              href="/operators/global-catalog"
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200"
+            >
+              Global Catalog
+            </a>
+            <a
+              href="/operators/add-product"
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-purple-700 bg-purple-100 hover:bg-purple-200"
+            >
+              Add Product
+            </a>
           </div>
         </div>
 

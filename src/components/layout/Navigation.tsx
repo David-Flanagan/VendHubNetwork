@@ -2,16 +2,24 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function Navigation() {
   const pathname = usePathname()
+  const { isAdmin } = useAuth()
 
   const navItems = [
     { href: '/', label: 'Home' },
-    { href: '/admin', label: 'Admin Panel' },
     { href: '/operators', label: 'Operators' },
     { href: '/customers', label: 'Customers' },
   ]
+
+  // Add admin link if user is admin
+  if (isAdmin) {
+    navItems.push({ href: '/admin/dashboard', label: 'Admin Panel' })
+  } else {
+    navItems.push({ href: '/admin', label: 'Admin Panel' })
+  }
 
   return (
     <nav className="bg-white shadow-sm border-b">

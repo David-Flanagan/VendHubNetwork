@@ -6,11 +6,13 @@ import { supabase } from '@/lib/supabase'
 import { Company } from '@/types'
 import { useToast } from '@/contexts/ToastContext'
 import ImageUpload from '@/components/ImageUpload'
+import RouteGuard from '@/components/auth/RouteGuard'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function EditProfile() {
   const router = useRouter()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
   const [company, setCompany] = useState<Company | null>(null)
   const [profileLoading, setProfileLoading] = useState(false)
   const { showToast } = useToast()
@@ -27,62 +29,38 @@ export default function EditProfile() {
   })
 
   useEffect(() => {
-    checkAuth()
-  }, [])
+    if (user?.company_id) {
+      fetchCompanyData()
+    }
+  }, [user])
 
-  const checkAuth = async () => {
+  const fetchCompanyData = async () => {
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser()
-      
-      if (!authUser) {
-        router.push('/operators/login')
-        return
-      }
-
-      // Get user data with role
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', authUser.id)
-        .single()
-
-      if (userError || !userData) {
-        router.push('/operators/login')
-        return
-      }
-
-      if (userData.role !== 'operator') {
-        router.push('/operators/login')
-        return
-      }
-
-      setUser(userData)
+      if (!user?.company_id) return
 
       // Get company data
-      if (userData.company_id) {
-        const { data: companyData, error: companyError } = await supabase
-          .from('companies')
-          .select('*')
-          .eq('id', userData.company_id)
-          .single()
+      const { data: companyData, error: companyError } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('id', user.company_id)
+        .single()
 
-        if (!companyError && companyData) {
-          setCompany(companyData)
-          // Initialize profile data
-          setProfileData({
-            name: companyData.name || '',
-            slogan: companyData.slogan || '',
-            description: companyData.description || '',
-            contact_email: companyData.contact_email || '',
-            contact_phone: companyData.contact_phone || '',
-            website: companyData.website || '',
-            address: companyData.address || ''
-          })
-        }
+      if (!companyError && companyData) {
+        setCompany(companyData)
+        // Initialize profile data
+        setProfileData({
+          name: companyData.name || '',
+          slogan: companyData.slogan || '',
+          description: companyData.description || '',
+          contact_email: companyData.contact_email || '',
+          contact_phone: companyData.contact_phone || '',
+          website: companyData.website || '',
+          address: companyData.address || ''
+        })
       }
     } catch (error) {
-      console.error('Auth check error:', error)
-      router.push('/operators/login')
+      console.error('Error fetching company data:', error)
+      showToast('Error loading company data', 'error')
     } finally {
       setLoading(false)
     }
@@ -167,187 +145,191 @@ export default function EditProfile() {
     router.push('/operators/dashboard')
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600"></div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <button
-                onClick={handleBackToDashboard}
-                className="mr-4 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <h1 className="text-xl font-semibold text-gray-900">Edit Public Profile</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Welcome, {user?.email}</span>
+    <RouteGuard requiredRole="operator" redirectTo="/operators/login">
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="bg-white shadow">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between h-16">
+              <div className="flex items-center">
+                <button
+                  onClick={handleBackToDashboard}
+                  className="mr-4 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <h1 className="text-xl font-semibold text-gray-900">Edit Public Profile</h1>
+              </div>
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-gray-600">Welcome, {user?.email}</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {company && (
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">Company Information</h2>
-              <p className="text-gray-600">Update your company details that will be displayed on your public profile.</p>
+        {/* Main Content */}
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
-
-            <div className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                    Company Name *
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={profileData.name}
-                    onChange={handleProfileChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="slogan" className="block text-sm font-medium text-gray-700 mb-1">
-                    Slogan/Tagline
-                  </label>
-                  <input
-                    type="text"
-                    id="slogan"
-                    name="slogan"
-                    value={profileData.slogan}
-                    onChange={handleProfileChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Your company tagline"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="contact_email" className="block text-sm font-medium text-gray-700 mb-1">
-                    Contact Email
-                  </label>
-                  <input
-                    type="email"
-                    id="contact_email"
-                    name="contact_email"
-                    value={profileData.contact_email}
-                    onChange={handleProfileChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="contact@company.com"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="contact_phone" className="block text-sm font-medium text-gray-700 mb-1">
-                    Contact Phone
-                  </label>
-                  <input
-                    type="tel"
-                    id="contact_phone"
-                    name="contact_phone"
-                    value={profileData.contact_phone}
-                    onChange={handleProfileChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="(555) 123-4567"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-1">
-                    Website
-                  </label>
-                  <input
-                    type="url"
-                    id="website"
-                    name="website"
-                    value={profileData.website}
-                    onChange={handleProfileChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="https://www.company.com"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                    Address
-                  </label>
-                  <input
-                    type="text"
-                    id="address"
-                    name="address"
-                    value={profileData.address}
-                    onChange={handleProfileChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="123 Business St, City, State 12345"
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                  About Your Company
-                </label>
-                <textarea
-                  id="description"
-                  name="description"
-                  value={profileData.description}
-                  onChange={handleProfileChange}
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Tell customers about your company, services, and what makes you unique..."
-                />
+          ) : company ? (
+            <div className="bg-white p-6 rounded-lg shadow-sm border">
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-2">Company Information</h2>
+                <p className="text-gray-600">Update your company details that will be displayed on your public profile.</p>
               </div>
 
-              {/* Profile Image Upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Profile Image
-                </label>
-                <ImageUpload
-                  currentImageUrl={company.profile_image_url}
-                  onImageUploaded={handleProfileImageUploaded}
-                  onUploadError={handleProfileImageError}
-                  bucketName="profile-images"
-                  folderPath={`companies/${company.id}`}
-                  maxSizeMB={5}
-                  aspectRatio={2}
-                  className="max-w-md"
-                />
-              </div>
+              <div className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                      Company Name *
+                    </label>
+                    <input
+                      type="text"
+                      id="name"
+                      name="name"
+                      value={profileData.name}
+                      onChange={handleProfileChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="slogan" className="block text-sm font-medium text-gray-700 mb-1">
+                      Slogan/Tagline
+                    </label>
+                    <input
+                      type="text"
+                      id="slogan"
+                      name="slogan"
+                      value={profileData.slogan}
+                      onChange={handleProfileChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Your company tagline"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="contact_email" className="block text-sm font-medium text-gray-700 mb-1">
+                      Contact Email
+                    </label>
+                    <input
+                      type="email"
+                      id="contact_email"
+                      name="contact_email"
+                      value={profileData.contact_email}
+                      onChange={handleProfileChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="contact@company.com"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="contact_phone" className="block text-sm font-medium text-gray-700 mb-1">
+                      Contact Phone
+                    </label>
+                    <input
+                      type="tel"
+                      id="contact_phone"
+                      name="contact_phone"
+                      value={profileData.contact_phone}
+                      onChange={handleProfileChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="+1 (555) 123-4567"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-1">
+                      Website
+                    </label>
+                    <input
+                      type="url"
+                      id="website"
+                      name="website"
+                      value={profileData.website}
+                      onChange={handleProfileChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="https://www.company.com"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
+                      Address
+                    </label>
+                    <input
+                      type="text"
+                      id="address"
+                      name="address"
+                      value={profileData.address}
+                      onChange={handleProfileChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="123 Main St, City, State 12345"
+                    />
+                  </div>
+                </div>
 
-              <div className="flex justify-end space-x-3 pt-6 border-t">
-                <button
-                  onClick={handleBackToDashboard}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-                  disabled={profileLoading}
-                >
-                  Back to Dashboard
-                </button>
-                <button
-                  onClick={handleProfileSave}
-                  disabled={profileLoading || !profileData.name.trim()}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {profileLoading ? 'Saving...' : 'Save Changes'}
-                </button>
+                <div>
+                  <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                    About/Description
+                  </label>
+                  <textarea
+                    id="description"
+                    name="description"
+                    value={profileData.description}
+                    onChange={handleProfileChange}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Tell customers about your company, services, and what makes you unique..."
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-4">
+                  <button
+                    onClick={handleBackToDashboard}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleProfileSave}
+                    disabled={profileLoading}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {profileLoading ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="bg-white p-6 rounded-lg shadow-sm border">
+              <div className="text-center">
+                <p className="text-gray-600">No company data found. Please contact support.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Profile Image Upload */}
+          {company && (
+            <div className="mt-6 bg-white p-6 rounded-lg shadow-sm border">
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-2">Profile Image</h2>
+                <p className="text-gray-600">Upload a profile image that will be displayed on your public profile.</p>
+              </div>
+
+              <ImageUpload
+                currentImageUrl={company.profile_image_url}
+                onImageUploaded={handleProfileImageUploaded}
+                onUploadError={handleProfileImageError}
+                bucketName="profile-images"
+                folderPath={`companies/${company.id}`}
+              />
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </RouteGuard>
   )
 } 

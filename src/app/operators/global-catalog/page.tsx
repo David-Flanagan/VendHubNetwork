@@ -3,14 +3,16 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { GlobalProduct } from '@/types'
-import { getCurrentUserId } from '@/lib/auth-utils'
 import { useToast } from '@/contexts/ToastContext'
+import { useAuth } from '@/contexts/AuthContext'
+import RouteGuard from '@/components/auth/RouteGuard'
 
 interface GlobalProductWithType extends GlobalProduct {
   product_type_name?: string
 }
 
 export default function GlobalCatalogPage() {
+  const { user } = useAuth()
   const [products, setProducts] = useState<GlobalProductWithType[]>([])
   const [allProducts, setAllProducts] = useState<GlobalProductWithType[]>([])
   const [loading, setLoading] = useState(true)
@@ -23,9 +25,11 @@ export default function GlobalCatalogPage() {
 
   useEffect(() => {
     fetchGlobalProducts()
-    fetchCompanyProducts()
     fetchProductTypes()
-  }, [])
+    if (user?.company_id) {
+      fetchCompanyProducts()
+    }
+  }, [user])
 
   useEffect(() => {
     filterProducts()
@@ -97,17 +101,7 @@ export default function GlobalCatalogPage() {
 
   const fetchCompanyProducts = async () => {
     try {
-      const userId = await getCurrentUserId()
-      if (!userId) return
-
-      // First get the user's company_id
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('company_id')
-        .eq('id', userId)
-        .single()
-
-      if (userError || !userData?.company_id) {
+      if (!user?.company_id) {
         console.log('No company found for user')
         return
       }
@@ -115,7 +109,7 @@ export default function GlobalCatalogPage() {
       const { data, error } = await supabase
         .from('company_products')
         .select('global_product_id')
-        .eq('company_id', userData.company_id)
+        .eq('company_id', user.company_id)
 
       if (error) throw error
       const productIds = new Set(data?.map(p => p.global_product_id) || [])
@@ -138,21 +132,7 @@ export default function GlobalCatalogPage() {
   const addToCompanyCatalog = async () => {
     try {
       console.log('Starting addToCompanyCatalog function')
-      const userId = await getCurrentUserId()
-      if (!userId) {
-        console.log('No user ID found, showing error toast')
-        showToast('Please log in to add products to your catalog', 'error')
-        return
-      }
-
-      // Get the user's company_id
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('company_id')
-        .eq('id', userId)
-        .single()
-
-      if (userError || !userData?.company_id) {
+      if (!user?.company_id) {
         console.log('No company found, showing error toast')
         showToast('No company associated with your account', 'error')
         return
@@ -160,7 +140,7 @@ export default function GlobalCatalogPage() {
 
       console.log('Adding products:', selectedProducts.size, 'products')
       const productsToAdd = Array.from(selectedProducts).map(productId => ({
-        company_id: userData.company_id,
+        company_id: user.company_id,
         global_product_id: productId,
         price: 0, // Default price, can be updated later
         is_available: true
@@ -190,20 +170,7 @@ export default function GlobalCatalogPage() {
 
   const removeFromCompanyCatalog = async (productId: string) => {
     try {
-      const userId = await getCurrentUserId()
-      if (!userId) {
-        showToast('Please log in to remove products from your catalog', 'error')
-        return
-      }
-
-      // Get the user's company_id
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('company_id')
-        .eq('id', userId)
-        .single()
-
-      if (userError || !userData?.company_id) {
+      if (!user?.company_id) {
         showToast('No company associated with your account', 'error')
         return
       }
@@ -211,7 +178,7 @@ export default function GlobalCatalogPage() {
       const { error } = await supabase
         .from('company_products')
         .delete()
-        .eq('company_id', userData.company_id)
+        .eq('company_id', user.company_id)
         .eq('global_product_id', productId)
 
       if (error) throw error
@@ -228,230 +195,162 @@ export default function GlobalCatalogPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading global catalog...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Global Product Catalog</h1>
-        <p className="text-gray-600 mt-2">Browse and add products to your company catalog</p>
-      </div>
+    <RouteGuard requiredRoles={["admin", "operator"]} redirectTo="/operators/login">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Global Product Catalog</h1>
+              <p className="text-gray-600 mt-2">Browse and add products to your company catalog</p>
+            </div>
+            <div className="flex space-x-4">
+              {selectedProducts.size > 0 && (
+                <button
+                  onClick={addToCompanyCatalog}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                >
+                  Add {selectedProducts.size} to Catalog
+                </button>
+              )}
+              <a
+                href="/operators/catalog"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                View My Catalog
+              </a>
+            </div>
+          </div>
+        </div>
 
-      {/* Enhanced Search and Filters */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border mb-6">
-        <div className="space-y-6">
-          {/* Search Bar */}
-          <div>
-            <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
-              🔍 Search Products
-            </label>
-            <div className="relative">
+        {/* Search and Filter */}
+        <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Search Products</label>
               <input
                 type="text"
-                id="search"
-                placeholder="Search by brand name, product name, or description..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Search by brand, name, or description..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
             </div>
-          </div>
-
-          {/* Product Type Filters */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              🏷️ Filter by Category
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setSelectedProductType('all')}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                  selectedProductType === 'all'
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-sm'
-                }`}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Type</label>
+              <select
+                value={selectedProductType}
+                onChange={(e) => setSelectedProductType(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                All Categories ({allProducts.length})
-              </button>
-              {productTypes.map(type => {
-                const count = allProducts.filter(p => p.product_type_id === type.id).length
-                return (
-                  <button
-                    key={type.id}
-                    onClick={() => setSelectedProductType(type.id)}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                      selectedProductType === type.id
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-sm'
-                    }`}
-                  >
-                    {type.name} ({count})
-                  </button>
-                )
-              })}
+                <option value="all">All Types</option>
+                {productTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
-
-          {/* Results Summary and Actions */}
-          <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-600">
-                📊 Showing <span className="font-semibold text-gray-900">{products.length}</span> of <span className="font-semibold text-gray-900">{allProducts.length}</span> products
-              </div>
-              {searchTerm && (
-                <div className="text-sm text-blue-600">
-                  🔍 Searching for: <span className="font-medium">"{searchTerm}"</span>
-                </div>
-              )}
-            </div>
-            {(searchTerm || selectedProductType !== 'all') && (
-              <button
-                onClick={() => {
-                  setSearchTerm('')
-                  setSelectedProductType('all')
-                }}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-1"
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                <span>Clear filters</span>
-              </button>
-            )}
           </div>
         </div>
-      </div>
 
-      {/* Action Bar */}
-      {selectedProducts.size > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <div className="flex items-center justify-between">
-            <span className="text-blue-800">
-              {selectedProducts.size} product{selectedProducts.size !== 1 ? 's' : ''} selected
-            </span>
-            <button
-              onClick={addToCompanyCatalog}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Add to Company Catalog
-            </button>
+        {/* Products Grid */}
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
-        </div>
-      )}
-
-      {/* Products Grid */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {products.map((product) => {
-          const isSelected = selectedProducts.has(product.id)
-          const isInCompanyCatalog = companyProducts.has(product.id)
-
-          return (
-            <div
-              key={product.id}
-              className={`bg-white p-6 rounded-lg shadow-sm border-2 transition-all ${
-                isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-              }`}
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-start space-x-4">
-                    {product.image_url && (
-                      <div className="w-16 h-16 flex-shrink-0">
-                        <img
-                          src={product.image_url}
-                          alt={`${product.brand_name} ${product.product_name}`}
-                          className="w-full h-full object-cover rounded-lg"
-                        />
+        ) : (
+          <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">
+                Products ({products.length} of {allProducts.length})
+              </h3>
+            </div>
+            {products.length === 0 ? (
+              <div className="px-6 py-8 text-center text-gray-500">
+                {allProducts.length === 0 ? 'No products found in the global catalog.' : 'No products match your search criteria.'}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
+                {products.map((product) => {
+                  const isInCompanyCatalog = companyProducts.has(product.id)
+                  const isSelected = selectedProducts.has(product.id)
+                  
+                  return (
+                    <div
+                      key={product.id}
+                      className={`bg-white border rounded-lg overflow-hidden hover:shadow-md transition-shadow ${
+                        isSelected ? 'ring-2 ring-blue-500' : 'border-gray-200'
+                      }`}
+                    >
+                      {/* Product Image */}
+                      <div className="aspect-square bg-gray-100 flex items-center justify-center">
+                        {product.image_url ? (
+                          <img
+                            src={product.image_url}
+                            alt={product.product_name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">{product.brand_name} - {product.product_name}</h3>
-                      {product.description && (
-                        <p className="text-gray-600 text-sm mb-3">{product.description}</p>
-                      )}
-                      <div className="text-sm text-gray-500">
-                        Type: {product.product_type_name || 'Unknown'}
+
+                      {/* Product Info */}
+                      <div className="p-4">
+                        <div className="mb-2">
+                          <h3 className="font-semibold text-gray-900 text-sm truncate">
+                            {product.product_name}
+                          </h3>
+                          <p className="text-gray-600 text-xs truncate">
+                            {product.brand_name}
+                          </p>
+                        </div>
+
+                        {product.description && (
+                          <p className="text-gray-500 text-xs mb-3 line-clamp-2">
+                            {product.description}
+                          </p>
+                        )}
+
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {product.product_type_name || 'Unknown'}
+                          </span>
+                          
+                          {isInCompanyCatalog ? (
+                            <button
+                              onClick={() => removeFromCompanyCatalog(product.id)}
+                              className="text-red-600 hover:text-red-800 text-xs font-medium"
+                            >
+                              Remove
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => toggleProductSelection(product.id)}
+                              className={`text-xs font-medium ${
+                                isSelected
+                                  ? 'text-blue-600 hover:text-blue-800'
+                                  : 'text-gray-600 hover:text-gray-800'
+                              }`}
+                            >
+                              {isSelected ? 'Selected' : 'Select'}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end space-y-2">
-                  {isInCompanyCatalog ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      In Your Catalog
-                    </span>
-                  ) : (
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleProductSelection(product.id)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                  )}
-                </div>
+                  )
+                })}
               </div>
-
-              <div className="flex justify-between items-center">
-                <div className="text-xs text-gray-500">
-                  Added: {new Date(product.created_at).toLocaleDateString()}
-                </div>
-                {isInCompanyCatalog && (
-                  <button
-                    onClick={() => removeFromCompanyCatalog(product.id)}
-                    className="text-red-600 hover:text-red-800 text-sm font-medium"
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {products.length === 0 && (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            )}
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {searchTerm || selectedProductType !== 'all' ? 'No products found' : 'No products available'}
-          </h3>
-          <p className="text-gray-600 mb-4">
-            {searchTerm || selectedProductType !== 'all' 
-              ? 'Try adjusting your search terms or filters to find more products.'
-              : 'The global product catalog is empty.'
-            }
-          </p>
-          {(searchTerm || selectedProductType !== 'all') && (
-            <button
-              onClick={() => {
-                setSearchTerm('')
-                setSelectedProductType('all')
-              }}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200"
-            >
-              Clear all filters
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </RouteGuard>
   )
 } 

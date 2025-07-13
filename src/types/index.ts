@@ -63,11 +63,13 @@ export interface Company {
   id: string
   name: string
   description?: string
+  slogan?: string
   contact_email?: string
   contact_phone?: string
   address?: string
   website?: string
   logo_url?: string
+  profile_image_url?: string
   created_at: string
   updated_at: string
 }

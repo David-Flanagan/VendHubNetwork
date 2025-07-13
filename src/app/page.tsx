@@ -52,6 +52,25 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Browse Operators Section */}
+      <div className="bg-white p-8 rounded-lg shadow-sm border mb-8">
+        <h2 className="text-2xl font-semibold text-gray-900 mb-4">Browse Vending Operators</h2>
+        <p className="text-gray-600 mb-6">
+          Discover vending machine operators in your area. View their profiles, product catalogs, and available machines.
+        </p>
+        <div className="text-center">
+          <a
+            href="/browse-operators"
+            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+          >
+            Browse Operators
+            <svg className="ml-2 -mr-1 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </a>
+        </div>
+      </div>
+
       {/* Status Section */}
       <div className="bg-white p-8 rounded-lg shadow-sm border">
         <h2 className="text-2xl font-semibold text-gray-900 mb-4">System Status</h2>
@@ -64,26 +83,26 @@ export default function Home() {
                 <span className="text-sm text-gray-600">Project Setup Complete</span>
               </div>
               <div className="flex items-center">
+                <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                <span className="text-sm text-gray-600">Admin Panel - Complete</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                <span className="text-sm text-gray-600">Operator Features - Complete</span>
+              </div>
+              <div className="flex items-center">
                 <div className="w-2 h-2 bg-yellow-500 rounded-full mr-3"></div>
-                <span className="text-sm text-gray-600">Admin Panel - In Progress</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-gray-300 rounded-full mr-3"></div>
-                <span className="text-sm text-gray-600">Operator Features - Pending</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-gray-300 rounded-full mr-3"></div>
-                <span className="text-sm text-gray-600">Customer Features - Pending</span>
+                <span className="text-sm text-gray-600">Customer Features - In Progress</span>
               </div>
             </div>
           </div>
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Next Steps</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Recent Updates</h3>
             <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Set up Supabase database tables</li>
-              <li>• Create Admin authentication</li>
-              <li>• Build Global Product Catalog</li>
-              <li>• Implement Machine Templates</li>
+              <li>• Operator profile editor implemented</li>
+              <li>• Public company profiles created</li>
+              <li>• Product catalog with filtering</li>
+              <li>• Machine templates display</li>
             </ul>
           </div>
         </div>

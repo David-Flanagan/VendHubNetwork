@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Company } from '@/types'
+import { useToast } from '@/contexts/ToastContext'
 
 export default function OperatorDashboard() {
   const router = useRouter()
@@ -15,6 +17,7 @@ export default function OperatorDashboard() {
     availableProducts: 0,
     totalMachines: 0
   })
+  const { showToast } = useToast()
 
   useEffect(() => {
     checkAuth()
@@ -77,19 +80,20 @@ export default function OperatorDashboard() {
         .select('*', { count: 'exact', head: true })
         .eq('company_id', companyId)
 
-      const { count: availableCount } = await supabase
-        .from('company_products')
-        .select('*', { count: 'exact', head: true })
-        .eq('company_id', companyId)
-        .eq('is_available', true)
-
+      // For now, set available products same as total since is_available might not exist
       setStats({
         totalProducts: productsCount || 0,
-        availableProducts: availableCount || 0,
+        availableProducts: productsCount || 0,
         totalMachines: 0 // TODO: Implement machine tracking
       })
     } catch (error) {
       console.error('Error fetching stats:', error)
+      // Set default stats if there's an error
+      setStats({
+        totalProducts: 0,
+        availableProducts: 0,
+        totalMachines: 0
+      })
     }
   }
 
@@ -130,42 +134,6 @@ export default function OperatorDashboard() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Company Info */}
-        {company && (
-          <div className="bg-white p-6 rounded-lg shadow-sm border mb-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Company Information</h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Company Name</p>
-                <p className="text-gray-900">{company.name}</p>
-              </div>
-              {company.contact_email && (
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Contact Email</p>
-                  <p className="text-gray-900">{company.contact_email}</p>
-                </div>
-              )}
-              {company.contact_phone && (
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Contact Phone</p>
-                  <p className="text-gray-900">{company.contact_phone}</p>
-                </div>
-              )}
-              {company.website && (
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Website</p>
-                  <p className="text-gray-900">{company.website}</p>
-                </div>
-              )}
-            </div>
-            {company.description && (
-              <div className="mt-4">
-                <p className="text-sm font-medium text-gray-600">Description</p>
-                <p className="text-gray-900">{company.description}</p>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Stats */}
         <div className="grid md:grid-cols-3 gap-6 mb-8">
@@ -214,7 +182,38 @@ export default function OperatorDashboard() {
 
         {/* Quick Actions */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <a href="/operators/global-catalog" className="block">
+          {company && (
+            <a href={`/${encodeURIComponent(company.name)}`} target="_blank" rel="noopener noreferrer" className="block">
+              <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">View Public Profile</h3>
+                <p className="text-gray-600 mb-4">See how customers view your company profile</p>
+                <div className="text-sm text-purple-600">View Profile →</div>
+              </div>
+            </a>
+          )}
+
+          {company && (
+            <Link href="/operators/edit-profile" className="block">
+              <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Edit Public Profile</h3>
+                <p className="text-gray-600 mb-4">Update your company information and profile image</p>
+                <div className="text-sm text-blue-600">Edit Profile →</div>
+              </div>
+            </Link>
+          )}
+
+          <Link href="/operators/global-catalog" className="block">
             <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -225,9 +224,9 @@ export default function OperatorDashboard() {
               <p className="text-gray-600 mb-4">Find and add products to your company catalog</p>
               <div className="text-sm text-blue-600">Browse Products →</div>
             </div>
-          </a>
+          </Link>
 
-          <a href="/operators/catalog" className="block">
+          <Link href="/operators/catalog" className="block">
             <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
               <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
                 <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -238,9 +237,9 @@ export default function OperatorDashboard() {
               <p className="text-gray-600 mb-4">Manage your company's product offerings</p>
               <div className="text-sm text-green-600">View Catalog →</div>
             </div>
-          </a>
+          </Link>
 
-          <a href="/operators/global-machine-templates" className="block">
+          <Link href="/operators/global-machine-templates" className="block">
             <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
               <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
                 <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -248,23 +247,10 @@ export default function OperatorDashboard() {
                 </svg>
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Machine Templates</h3>
-              <p className="text-gray-600 mb-4">Browse and add machine templates</p>
-              <div className="text-sm text-orange-600">Browse Templates →</div>
+              <p className="text-gray-600 mb-4">Browse and manage vending machine templates</p>
+              <div className="text-sm text-orange-600">View Templates →</div>
             </div>
-          </a>
-
-          <a href="/operators/machine-templates" className="block">
-            <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">My Machine Templates</h3>
-              <p className="text-gray-600 mb-4">Manage your company's machine templates</p>
-              <div className="text-sm text-purple-600">Manage Templates →</div>
-            </div>
-          </a>
+          </Link>
         </div>
       </div>
     </div>

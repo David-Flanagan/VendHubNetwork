@@ -11,10 +11,7 @@ export async function checkAdminAccess(): Promise<User | null> {
   try {
     const { data: { user: authUser } } = await supabase.auth.getUser()
     
-    console.log('Checking admin access for:', authUser?.email)
-    
     if (!authUser) {
-      console.log('No auth user for admin check')
       return null
     }
 
@@ -25,24 +22,10 @@ export async function checkAdminAccess(): Promise<User | null> {
       .eq('id', authUser.id)
       .single()
 
-    console.log('Admin check - User data:', userData, 'Error:', error)
-
-    if (error) {
-      console.error('Error checking admin access:', error)
+    if (error || !userData || userData.role !== 'admin') {
       return null
     }
 
-    if (!userData) {
-      console.log('No user data found for admin check')
-      return null
-    }
-
-    if (userData.role !== 'admin') {
-      console.log('User role is not admin:', userData.role)
-      return null
-    }
-
-    console.log('Admin access granted for:', userData.email)
     return userData
   } catch (error) {
     console.error('Error checking admin access:', error)
@@ -52,9 +35,9 @@ export async function checkAdminAccess(): Promise<User | null> {
 
 export async function getCurrentUser(): Promise<User | null> {
   try {
-    const { data: { user: authUser } } = await supabase.auth.getUser()
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
     
-    if (!authUser) {
+    if (authError || !authUser) {
       return null
     }
 
@@ -64,12 +47,7 @@ export async function getCurrentUser(): Promise<User | null> {
       .eq('id', authUser.id)
       .single()
 
-    if (error) {
-      console.error('Error fetching user from DB:', error)
-      return null
-    }
-
-    if (!userData) {
+    if (error || !userData) {
       return null
     }
 
@@ -81,15 +59,17 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 export async function signOut() {
-  await supabase.auth.signOut()
+  try {
+    await supabase.auth.signOut()
+  } catch (error) {
+    console.error('Error signing out:', error)
+  }
 }
 
 // Test function to check if Supabase is working
 export async function testSupabaseConnection() {
   try {
-    console.log('Testing Supabase connection...')
     const { data, error } = await supabase.from('users').select('count').limit(1)
-    console.log('Supabase test result:', data, error)
     return { success: !error, error }
   } catch (error) {
     console.error('Supabase connection test failed:', error)
@@ -97,14 +77,59 @@ export async function testSupabaseConnection() {
   }
 }
 
-// Listen for auth state changes
+// Improved auth state change listener that prevents infinite loops
+let authStateListener: any = null
+let isListening = false
+
 export function onAuthStateChange(callback: (user: User | null) => void) {
-  return supabase.auth.onAuthStateChange(async (event, session) => {
-    if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
-      const user = await getCurrentUser()
-      callback(user)
-    } else if (event === 'SIGNED_OUT') {
+  // Prevent multiple listeners
+  if (isListening && authStateListener) {
+    return authStateListener
+  }
+
+  isListening = true
+  
+  authStateListener = supabase.auth.onAuthStateChange(async (event, session) => {
+    console.log('Auth state change:', event, session?.user?.email)
+    
+    try {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        // Use a simple user object instead of calling getCurrentUser to prevent loops
+        const user: User = {
+          id: session.user.id,
+          email: session.user.email || '',
+          role: 'unknown', // Will be updated by the component if needed
+          company_id: undefined
+        }
+        callback(user)
+      } else if (event === 'SIGNED_OUT') {
+        callback(null)
+      }
+    } catch (error) {
+      console.error('Error in auth state change:', error)
       callback(null)
     }
   })
+
+  return authStateListener
+}
+
+// Function to get full user data without triggering auth loops
+export async function getFullUserData(userId: string): Promise<User | null> {
+  try {
+    const { data: userData, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (error || !userData) {
+      return null
+    }
+
+    return userData
+  } catch (error) {
+    console.error('Error getting full user data:', error)
+    return null
+  }
 } 

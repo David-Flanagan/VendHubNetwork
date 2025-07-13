@@ -153,7 +153,7 @@ export default function OperatorDashboard() {
               </div>
 
               {/* Quick Actions */}
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 {company && (
                   <a href={`/${encodeURIComponent(company.name)}`} target="_blank" rel="noopener noreferrer" className="block">
                     <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
@@ -237,6 +237,8 @@ export default function OperatorDashboard() {
                   </div>
                 </Link>
               </div>
+
+
             </>
           )}
         </div>

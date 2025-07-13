@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Company, GlobalProduct } from '@/types'
+import CompanyMap from '@/components/maps/CompanyMap'
 
 interface CompanyProduct extends GlobalProduct {
   price: number
@@ -363,6 +364,39 @@ export default function CompanyProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* Map Section */}
+        {company.map_enabled && company.latitude && company.longitude && (
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 mb-12">
+            <div className="flex items-center mb-8">
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mr-4">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-3xl font-bold text-gray-900">Service Area</h2>
+                <p className="text-gray-600 mt-1">Our warehouse location and service coverage</p>
+              </div>
+            </div>
+            
+            <CompanyMap company={company} />
+            
+            {company.service_area_radius_miles && company.service_area_radius_miles > 0 && (
+              <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-blue-800 font-semibold">
+                    We service areas within {company.service_area_radius_miles} miles of our warehouse
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Product Catalog Section */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 mb-12">

@@ -4,6 +4,7 @@ import "./globals.css";
 import Navigation from "@/components/layout/Navigation";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ToastProvider } from "@/contexts/ToastContext";
+import AuthDebug from "@/components/debug/AuthDebug";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,6 +37,7 @@ export default function RootLayout({
             <main className="min-h-screen">
               {children}
             </main>
+            <AuthDebug />
           </ToastProvider>
         </AuthProvider>
       </body>

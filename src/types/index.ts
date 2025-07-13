@@ -70,6 +70,10 @@ export interface Company {
   website?: string
   logo_url?: string
   profile_image_url?: string
+  latitude?: number
+  longitude?: number
+  service_area_radius_miles?: number
+  map_enabled?: boolean
   created_at: string
   updated_at: string
 }

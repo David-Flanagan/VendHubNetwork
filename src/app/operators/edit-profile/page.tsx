@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { Company } from '@/types'
 import { useToast } from '@/contexts/ToastContext'
 import ImageUpload from '@/components/ImageUpload'
+import LocationEditor from '@/components/operators/LocationEditor'
 import RouteGuard from '@/components/auth/RouteGuard'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -78,22 +79,29 @@ export default function EditProfile() {
     if (!company) return
     
     setProfileLoading(true)
+    
     try {
-      const { error } = await supabase
+      const updateData = {
+        name: profileData.name,
+        slogan: profileData.slogan || null,
+        description: profileData.description || null,
+        contact_email: profileData.contact_email || null,
+        contact_phone: profileData.contact_phone || null,
+        website: profileData.website || null,
+        address: profileData.address || null,
+        updated_at: new Date().toISOString()
+      }
+      
+      const { data, error } = await supabase
         .from('companies')
-        .update({
-          name: profileData.name,
-          slogan: profileData.slogan || null,
-          description: profileData.description || null,
-          contact_email: profileData.contact_email || null,
-          contact_phone: profileData.contact_phone || null,
-          website: profileData.website || null,
-          address: profileData.address || null,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', company.id)
+        .select()
 
-      if (error) throw error
+      if (error) {
+        console.error('Error updating profile:', error)
+        throw error
+      }
 
       // Update local company state
       setCompany(prev => prev ? {
@@ -326,6 +334,13 @@ export default function EditProfile() {
                 bucketName="profile-images"
                 folderPath={`companies/${company.id}`}
               />
+            </div>
+          )}
+
+          {/* Location & Service Area */}
+          {company && (
+            <div className="mt-6">
+              <LocationEditor company={company} onUpdate={setCompany} />
             </div>
           )}
         </div>

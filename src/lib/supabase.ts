@@ -1,6 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = 'https://jljchibgaoiredkuwncn.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsamNoaWJnYW9pcmVka3V3bmNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzMzA3MzAsImV4cCI6MjA2NzkwNjczMH0.wCJ2jX7Wb8T4oW0JmIPdbRWdZ77Go99pGE5_2rIbjrc'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+// This console.log is essential for environment variables to load properly
+console.log('Supabase config loaded:', {
+  url: supabaseUrl ? 'SET' : 'MISSING',
+  key: supabaseAnonKey ? 'SET' : 'MISSING'
+})
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey) 

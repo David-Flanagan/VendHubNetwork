@@ -22,12 +22,18 @@ export default function OperatorDashboard() {
   useEffect(() => {
     if (user?.company_id) {
       fetchCompanyData()
+    } else {
+      // If user has no company_id, still set loading to false
+      setLoading(false)
     }
   }, [user])
 
   const fetchCompanyData = async () => {
     try {
-      if (!user?.company_id) return
+      if (!user?.company_id) {
+        setLoading(false)
+        return
+      }
 
       // Get company data
       const { data: companyData, error: companyError } = await supabase
@@ -39,6 +45,9 @@ export default function OperatorDashboard() {
       if (!companyError && companyData) {
         setCompany(companyData)
         await fetchStats(companyData.id)
+      } else {
+        console.error('Error fetching company data:', companyError)
+        showToast('Error loading company data', 'error')
       }
     } catch (error) {
       console.error('Error fetching company data:', error)
@@ -204,13 +213,26 @@ export default function OperatorDashboard() {
 
                 <Link href="/operators/global-machine-templates" className="block">
                   <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
+                      <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Global Machine Templates</h3>
+                    <p className="text-gray-600 mb-4">Browse and add machine templates to your catalog</p>
+                    <div className="text-sm text-indigo-600">Browse Templates →</div>
+                  </div>
+                </Link>
+
+                <Link href="/operators/machine-templates" className="block">
+                  <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
                     <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
                       <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                       </svg>
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Machine Templates</h3>
-                    <p className="text-gray-600 mb-4">Browse and manage vending machine templates</p>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Your Machine Templates</h3>
+                    <p className="text-gray-600 mb-4">Manage your company's machine templates</p>
                     <div className="text-sm text-orange-600">View Templates →</div>
                   </div>
                 </Link>

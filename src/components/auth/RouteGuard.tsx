@@ -27,7 +27,6 @@ export default function RouteGuard({
 
     // If auth is required but user is not logged in
     if (requireAuth && !user) {
-      console.log('RouteGuard: User not authenticated, redirecting to:', redirectTo)
       router.push(redirectTo)
       return
     }
@@ -41,12 +40,11 @@ export default function RouteGuard({
       )
 
       if (!hasRequiredRole) {
-        console.log(`RouteGuard: User doesn't have required role(s) ${rolesToCheck.join(', ')}, redirecting to:`, redirectTo)
         router.push(redirectTo)
         return
       }
     }
-  }, [user, loading, isAdmin, isOperator, requireAuth, requiredRole, redirectTo, router])
+  }, [user, loading, isAdmin, isOperator, requireAuth, requiredRole, requiredRoles, redirectTo, router])
 
   // Show loading spinner while checking auth
   if (loading) {

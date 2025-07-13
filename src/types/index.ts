@@ -74,6 +74,13 @@ export interface Company {
   longitude?: number
   service_area_radius_miles?: number
   map_enabled?: boolean
+  sections_config?: {
+    [key: string]: {
+      enabled: boolean
+      mandatory: boolean
+      order: number
+    }
+  }
   created_at: string
   updated_at: string
 }
@@ -84,4 +91,16 @@ export interface UserRole {
   user_id: string
   role: UserRoleType
   created_at: string
+}
+
+// Machine Gallery
+export interface MachineGalleryImage {
+  id: string
+  company_id: string
+  image_url: string
+  caption?: string | null
+  display_order: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
 } 

@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useToast } from '@/contexts/ToastContext'
 
 export default function OperatorRegistration() {
   const router = useRouter()
+  const { showToast } = useToast()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [step, setStep] = useState(1)
@@ -152,7 +154,7 @@ export default function OperatorRegistration() {
       // Clean up temporary data
       localStorage.removeItem('tempUserData')
 
-      alert('Registration successful! You can now log in.')
+      showToast('Registration successful! You can now log in.', 'success')
       router.push('/operators/login')
     } catch (error: any) {
       setError(error.message || 'Error creating company profile')

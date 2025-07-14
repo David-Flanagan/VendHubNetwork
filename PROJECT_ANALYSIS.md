@@ -1,395 +1,235 @@
-# VendHub Network - Complete Project Analysis
+# VendHub Network - Project Analysis & Status
 
-## 📋 Project Overview
+## 🎯 Project Overview
+VendHub Network is a comprehensive vending operator-customer relations portal that connects host locations with vending machine operators. The platform enables operators to showcase their services, products, and machines while allowing customers to browse and connect with operators in their area.
 
-**VendHub Network** is a comprehensive vending operator-customer relations portal built with Next.js, React, TypeScript, Tailwind CSS, and Supabase. The system manages relationships between vending operators, their product catalogs, and customer interactions.
+## 🏗️ Current Architecture
 
-## 🏗️ Architecture & Technology Stack
-
-### Frontend
+### Frontend Stack
 - **Framework**: Next.js 14 with App Router
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
-- **State Management**: React Context API
-- **Authentication**: Supabase Auth
+- **UI Components**: Custom components with modern design
+- **State Management**: React Context (Auth, Toast)
+- **Drag & Drop**: @dnd-kit for profile section reordering
 
-### Backend & Database
+### Backend Stack
 - **Database**: Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth with Row Level Security (RLS)
-- **File Storage**: Supabase Storage
-- **Real-time**: Supabase Realtime (configured but not heavily used)
+- **Authentication**: Supabase Auth
+- **Storage**: Supabase Storage for images
+- **Real-time**: Supabase subscriptions
+- **Maps**: Google Maps API with Drawing Library
 
-## 🗄️ Database Schema Analysis
+### Key Features Implemented
+
+#### ✅ Complete Profile System
+1. **Modular Widget Architecture**
+   - Drag-and-drop reordering with auto-save
+   - Fixed vs movable sections
+   - Collapsible interface for easier management
+   - Universal widget system for easy expansion
+
+2. **All Profile Sections**
+   - **Hero Section**: Profile image (1200×400px, 3:1 ratio)
+   - **Company Information**: Editable details (fixed position)
+   - **Location & Service Areas**: Advanced polygon drawing
+   - **Product Catalog**: Product listings with filtering
+   - **Machine Templates**: Machine type showcase
+   - **Machine Gallery**: Photo carousel with captions
+   - **VendHub Stats**: Network statistics
+
+3. **Advanced Service Area System**
+   - Polygon drawing with Google Maps
+   - Multiple service areas per company
+   - Radius and polygon methods
+   - Warehouse location pinning
+   - GeoJSON storage with PostGIS
+
+#### ✅ Authentication & Authorization
+- **User Roles**: Admin, Operator, Customer
+- **Role-based Access**: Users table with role field
+- **Company Association**: Operators linked to companies
+- **Route Protection**: Automatic redirects based on role
+
+#### ✅ Product Management
+- **Global Product Catalog**: Admin-managed product database
+- **Company Catalogs**: Operators add products to their catalog
+- **Product Types**: Categorized products (snacks, drinks, etc.)
+- **Pricing**: Company-specific pricing for products
+
+#### ✅ Machine Management
+- **Machine Templates**: Predefined machine types
+- **Company Machines**: Operators associate machines with templates
+- **Machine Gallery**: Photo uploads with captions
+- **Category System**: Organized machine types
+
+## 📊 Database Schema
 
 ### Core Tables
-
-#### 1. `users` Table
 ```sql
-- id: UUID (Primary Key, references auth.users.id)
-- email: TEXT (User's email address)
-- role: TEXT (ENUM: 'admin', 'operator', 'customer')
-- company_id: UUID (Foreign Key to companies.id, nullable)
-- created_at: TIMESTAMP WITH TIME ZONE
-- updated_at: TIMESTAMP WITH TIME ZONE
+-- Users and Authentication
+users (id, email, role, company_id, created_at, updated_at)
+
+-- Company Management
+companies (id, name, email, phone, website, address, about, 
+          profile_image_url, sections_config, created_at, updated_at)
+
+-- Product System
+product_types (id, name, created_at)
+global_products (id, brand_name, product_name, description, 
+                product_type_id, image_url, created_at)
+company_products (id, company_id, global_product_id, price, 
+                 is_available, created_at)
+
+-- Machine System
+machine_categories (id, name, description, created_at)
+machine_templates (id, name, category_id, description, 
+                  image_url, created_at)
+operator_machine_templates (id, operator_id, template_id, 
+                           slot_count, created_at)
+
+-- Service Areas
+service_areas (id, company_id, name, method, radius_miles, 
+              polygon_coordinates, center_lat, center_lng, created_at)
+
+-- Machine Gallery
+machine_gallery (id, company_id, image_url, caption, 
+                order_index, created_at)
 ```
 
-**Purpose**: Central user management with role-based access control.
+### Key Relationships
+- Users → Companies (operators)
+- Companies → Products (catalogs)
+- Companies → Service Areas (coverage)
+- Companies → Machine Gallery (photos)
+- Machine Templates → Categories (organization)
 
-#### 2. `companies` Table
-```sql
-- id: UUID (Primary Key)
-- name: TEXT (Company name)
-- description: TEXT (Company description)
-- contact_email: TEXT
-- contact_phone: TEXT
-- address: TEXT
-- website: TEXT
-- logo_url: TEXT
-- created_at: TIMESTAMP WITH TIME ZONE
-- updated_at: TIMESTAMP WITH TIME ZONE
+## 🔧 Technical Implementation
+
+### Profile System Architecture
+```typescript
+// Section Configuration
+interface SectionConfig {
+  id: string
+  enabled: boolean
+  mandatory: boolean
+  order: number
+  fixedPosition?: boolean
+}
+
+// Database Storage
+{
+  "hero": {"enabled": true, "mandatory": true, "order": 1},
+  "company_info": {"enabled": true, "mandatory": true, "order": 2},
+  "location": {"enabled": true, "mandatory": true, "order": 3},
+  "product_catalog": {"enabled": true, "mandatory": true, "order": 4},
+  "machine_templates": {"enabled": true, "mandatory": true, "order": 5},
+  "machine_gallery": {"enabled": true, "mandatory": false, "order": 6},
+  "vendhub_stats": {"enabled": false, "mandatory": false, "order": 7}
+}
 ```
 
-**Purpose**: Stores operator company information.
+### Universal Widget System
+- **Migration Scripts**: Automatic updates for existing companies
+- **Default Configuration**: New companies get all sections
+- **Easy Expansion**: Simple process to add new sections
+- **Backward Compatibility**: Existing companies automatically updated
 
-#### 3. `global_products` Table
-```sql
-- id: UUID (Primary Key)
-- brand_name: TEXT (e.g., "Coca-Cola")
-- product_name: TEXT (e.g., "Classic Cola")
-- description: TEXT (Product description)
-- product_type_id: UUID (Foreign Key to product_types.id)
-- image_url: TEXT (Supabase Storage URL)
-- created_at: TIMESTAMP WITH TIME ZONE
-- updated_at: TIMESTAMP WITH TIME ZONE
-```
+### Service Area Implementation
+- **Google Maps Integration**: Drawing Library for polygon creation
+- **Multiple Methods**: Radius circles and custom polygons
+- **GeoJSON Storage**: Efficient spatial data storage
+- **Location Matching**: PostGIS functions for area queries
 
-**Purpose**: Master catalog of all available products in the system.
-
-#### 4. `product_types` Table
-```sql
-- id: UUID (Primary Key)
-- name: TEXT (e.g., "Soda", "Chips", "Candy")
-- description: TEXT
-- created_at: TIMESTAMP WITH TIME ZONE
-```
-
-**Purpose**: Categorizes products into types.
-
-#### 5. `company_products` Table (Junction Table)
-```sql
-- id: UUID (Primary Key)
-- company_id: UUID (Foreign Key to companies.id)
-- global_product_id: UUID (Foreign Key to global_products.id)
-- price: DECIMAL (Company-specific pricing)
-- is_available: BOOLEAN (Product availability status)
-- created_at: TIMESTAMP WITH TIME ZONE
-- updated_at: TIMESTAMP WITH TIME ZONE
-```
-
-**Purpose**: Links companies to products with company-specific pricing and availability.
-
-#### 6. `machine_templates` Table
-```sql
-- id: UUID (Primary Key)
-- name: TEXT
-- description: TEXT
-- category: TEXT
-- slot_count: INTEGER
-- created_at: TIMESTAMP WITH TIME ZONE
-- updated_at: TIMESTAMP WITH TIME ZONE
-```
-
-**Purpose**: Templates for vending machine configurations (future feature).
-
-### Database Relationships
-- **One-to-Many**: `companies` → `users` (one company can have many users)
-- **Many-to-Many**: `companies` ↔ `global_products` (via `company_products`)
-- **One-to-Many**: `product_types` → `global_products`
-- **One-to-Many**: `global_products` → `company_products`
-
-## 🔐 Authentication & Authorization System
-
-### Role-Based Access Control (RBAC)
-The system implements a three-tier role system:
-
-1. **Admin**: Full system access
-   - Manage global product catalog
-   - Manage user roles and permissions
-   - View all companies and users
-   - Access admin dashboard with real-time stats
-
-2. **Operator**: Company-specific access
-   - Manage their company's product catalog
-   - Add/remove products from global catalog to their catalog
-   - Set company-specific pricing
-   - View their company information
-
-3. **Customer**: Limited access (future implementation)
-   - View available products
-   - Place orders (future feature)
-
-### Authentication Flow
-1. **User Registration**: Email/password via Supabase Auth
-2. **Role Assignment**: User gets assigned a role in the `users` table
-3. **Session Management**: Supabase handles session tokens
-4. **Route Protection**: React components check user roles before rendering
-
-### Row Level Security (RLS) Policies
-```sql
--- Users can only view their own data
-CREATE POLICY "Users can view own data" ON users FOR SELECT USING (auth.uid() = id);
-
--- Admins can view all users
-CREATE POLICY "Admins can view all users" ON users FOR SELECT USING (
-  EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
-);
-
--- Operators can view their company's products
-CREATE POLICY "Company products access" ON company_products FOR SELECT USING (
-  company_id IN (SELECT company_id FROM users WHERE id = auth.uid())
-);
-```
-
-## 🎨 User Interface & Experience
+## 🎨 UI/UX Features
 
 ### Design System
-- **Framework**: Tailwind CSS
-- **Color Scheme**: Blue primary, with role-specific colors
-  - Admin: Red accents
-  - Operator: Blue accents
-  - Customer: Green accents
-- **Layout**: Responsive grid system
-- **Components**: Reusable card-based layouts
-
-### Key UI Components
-
-#### 1. Toast Notification System
-- **Location**: `src/contexts/ToastContext.tsx`
-- **Types**: Success, Error, Info
-- **Auto-dismiss**: 5 seconds
-- **Global**: Available throughout the app
-- **Usage**: `showToast(message, type)`
-
-#### 2. Loading States
-- **Spinner**: Animated loading indicators
-- **Skeleton**: Placeholder content while loading
-- **State Management**: Loading states for all async operations
-
-#### 3. Modal System
-- **Add/Edit Forms**: Product management, user creation
-- **Confirmation Dialogs**: Delete operations
-- **Image Upload**: File selection and preview
-
-## 🚀 Features Implemented
-
-### Admin Panel (`/admin/*`)
-
-#### 1. Admin Dashboard (`/admin/dashboard`)
-- **Real-time Statistics**: Dynamic counts of products, users, etc.
-- **Quick Access Cards**: Links to all management sections
-- **Authentication**: Admin-only access with redirect
-
-#### 2. User Management (`/admin/users`)
-- **User Listing**: View all users with roles and company info
-- **Role Management**: Edit user roles (admin, operator, customer)
-- **User Creation**: Add new users with role assignment
-- **User Deletion**: Remove users from system
-- **Search & Filter**: Find users by email or role
-- **Company Association**: View which company users belong to
-
-#### 3. Global Product Catalog (`/admin/products`)
-- **Product Listing**: Grid view of all global products
-- **Product Creation**: Add new products with image upload
-- **Product Editing**: Modify existing products
-- **Product Deletion**: Remove products from global catalog
-- **Image Management**: Supabase Storage integration
-- **Search & Filter**: Find products by name, brand, or type
-- **Product Types**: Categorization system
-
-#### 4. Product Types (`/admin/product-types`)
-- **Type Management**: CRUD operations for product categories
-- **Category Assignment**: Link products to types
-
-#### 5. Machine Categories (`/admin/machine-categories`)
-- **Template Management**: Vending machine configurations (future)
-
-### Operator Panel (`/operators/*`)
-
-#### 1. Operator Registration (`/operators/register`)
-- **Two-step Process**: Account creation + company setup
-- **Form Validation**: Email, password, company details
-- **Data Persistence**: Temporary storage between steps
-
-#### 2. Operator Login (`/operators/login`)
-- **Authentication**: Email/password login
-- **Role Verification**: Ensures operator access
-- **Session Management**: Automatic redirect to dashboard
-
-#### 3. Operator Dashboard (`/operators/dashboard`)
-- **Company Overview**: Display company information
-- **Statistics**: Product counts, availability status
-- **Quick Actions**: Links to catalog management
-
-#### 4. Global Catalog (`/operators/global-catalog`)
-- **Product Browsing**: View all available global products
-- **Selection System**: Multi-select products for company catalog
-- **Bulk Operations**: Add multiple products at once
-- **Search & Filter**: Find products by type or name
-- **Visual Indicators**: Show which products are already in company catalog
-
-#### 5. Company Catalog (`/operators/catalog`)
-- **Product Management**: View company's product catalog
-- **Price Management**: Edit product pricing inline
-- **Availability Toggle**: Enable/disable products
-- **Search & Filter**: Find products in company catalog
-- **Real-time Updates**: Immediate price changes
-
-### Customer Features (Future)
-- **Product Browsing**: View available products
-- **Order Placement**: Purchase products
-- **Account Management**: Profile and preferences
-
-## 🔧 Technical Implementation Details
-
-### State Management
-- **Context API**: Global state for authentication and notifications
-- **Local State**: Component-specific state management
-- **Form State**: Controlled components with validation
-
-### Data Fetching
-- **Supabase Client**: Direct database queries
-- **Real-time Updates**: Optimistic UI updates
-- **Error Handling**: Comprehensive error management
-- **Loading States**: User feedback during operations
-
-### File Upload System
-- **Storage**: Supabase Storage bucket (`product-images`)
-- **File Types**: Images only (jpg, png, gif)
-- **Naming**: Random UUID-based filenames
-- **URL Generation**: Public URLs for display
-
-### Security Measures
-- **Input Validation**: Client and server-side validation
-- **SQL Injection Prevention**: Supabase parameterized queries
-- **XSS Prevention**: React's built-in protection
-- **CSRF Protection**: Supabase session management
-
-## 📊 Performance Optimizations
-
-### Database
-- **Indexes**: Created on frequently queried columns
-- **Efficient Queries**: Count operations with `head: true`
-- **Connection Pooling**: Supabase managed connections
-
-### Frontend
-- **Code Splitting**: Next.js automatic code splitting
-- **Image Optimization**: Next.js Image component
-- **Lazy Loading**: Component-level lazy loading
-- **Memoization**: React.memo for expensive components
-
-## 🧪 Testing & Quality Assurance
-
-### Code Quality
-- **TypeScript**: Strict type checking
-- **ESLint**: Code linting and formatting
-- **Error Boundaries**: React error boundary implementation
-- **Console Logging**: Comprehensive debugging logs
-
-### User Experience
-- **Form Validation**: Real-time validation feedback
-- **Error Messages**: User-friendly error descriptions
-- **Loading States**: Clear feedback during operations
+- **Modern Cards**: Rounded corners, shadows, clean layout
 - **Responsive Design**: Mobile-first approach
+- **Toast Notifications**: User feedback for all actions
+- **Loading States**: Smooth user experience
+- **Error Handling**: Graceful error states
 
-## 🚀 Deployment Considerations
+### Profile Customization
+- **Drag-and-Drop**: Visual reordering with handles
+- **Toggle Switches**: Enable/disable optional sections
+- **Collapsible Interface**: Easier management of many sections
+- **Auto-Save**: Changes persist automatically
 
-### Environment Variables
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
+### Image Management
+- **Profile Images**: Hero section with size recommendations
+- **Machine Gallery**: Horizontal scrolling carousel
+- **Upload System**: Drag-and-drop with preview
+- **Storage Buckets**: Organized file storage
 
-### Build Process
-- **Next.js Build**: Optimized production build
-- **Static Assets**: Optimized images and fonts
-- **Bundle Analysis**: Webpack bundle optimization
+## 🚀 Current Status
 
-### Database Migration
-- **Schema Changes**: SQL migration files
-- **Data Seeding**: Initial data setup
-- **Backup Strategy**: Regular database backups
+### ✅ Production Ready Features
+1. **Complete Profile System** - All sections implemented
+2. **Service Area Drawing** - Advanced mapping features
+3. **Product Management** - Full catalog system
+4. **Machine Management** - Templates and gallery
+5. **Authentication** - Role-based access control
+6. **Migration System** - Easy feature expansion
 
-## 🔮 Future Enhancements
+### 📈 Performance Metrics
+- **Database**: Optimized queries with proper indexing
+- **Images**: Efficient storage and delivery
+- **Maps**: Lazy loading and caching
+- **UI**: Smooth animations and interactions
 
-### Planned Features
-1. **Customer Portal**: Full customer interface
-2. **Order Management**: Purchase and fulfillment system
-3. **Analytics Dashboard**: Sales and usage analytics
-4. **Machine Integration**: Real-time vending machine data
-5. **Payment Processing**: Stripe integration
-6. **Inventory Management**: Stock tracking and alerts
-7. **Reporting System**: Custom reports and exports
-8. **API Development**: RESTful API for external integrations
+### 🔒 Security Implementation
+- **Row Level Security**: Database-level protection
+- **Role-based Access**: User permission system
+- **File Upload Security**: Validated image uploads
+- **API Protection**: Authenticated endpoints
 
-### Technical Improvements
-1. **Real-time Updates**: WebSocket integration
-2. **Caching Strategy**: Redis implementation
-3. **Performance Monitoring**: Application performance tracking
-4. **Automated Testing**: Unit and integration tests
-5. **CI/CD Pipeline**: Automated deployment
-6. **Monitoring**: Error tracking and alerting
+## 📋 Development Workflow
 
-## 📝 Development Guidelines
+### Adding New Features
+1. **Discuss Requirements** - Always ask before coding
+2. **Plan Implementation** - Consider database and UI changes
+3. **Follow Widget System** - Use migration scripts for sections
+4. **Test Thoroughly** - Verify with existing and new companies
+5. **Document Changes** - Update relevant markdown files
 
 ### Code Standards
-- **TypeScript**: Strict mode enabled
-- **Component Structure**: Functional components with hooks
-- **File Naming**: kebab-case for files, PascalCase for components
-- **Import Organization**: Grouped imports (React, third-party, local)
+- **TypeScript**: Strict typing throughout
+- **React Best Practices**: Functional components, hooks
+- **Error Handling**: Comprehensive error states
+- **Testing**: Manual testing of all features
 
-### Git Workflow
-- **Branch Strategy**: Feature branches for new development
-- **Commit Messages**: Descriptive commit messages
-- **Code Review**: Pull request reviews
-- **Version Tagging**: Semantic versioning
+## 🎯 Future Enhancements
 
-### Documentation
-- **Code Comments**: Inline documentation for complex logic
-- **README**: Project setup and usage instructions
-- **API Documentation**: Endpoint documentation (future)
-- **User Guides**: Feature documentation
+### Potential Features
+1. **Customer Reviews** - Rating and review system
+2. **Advanced Analytics** - Sales and performance tracking
+3. **Commission Management** - Automated commission calculations
+4. **Real-time Notifications** - Live updates and alerts
+5. **Mobile App** - Native mobile experience
 
-## 🎯 Key Achievements
+### Technical Improvements
+1. **Performance Optimization** - Caching and lazy loading
+2. **Advanced Search** - Full-text search capabilities
+3. **API Documentation** - Comprehensive API docs
+4. **Automated Testing** - Unit and integration tests
 
-1. **Complete Admin System**: Full-featured admin panel with user and product management
-2. **Operator Portal**: Comprehensive operator interface for catalog management
-3. **Database Design**: Well-structured, normalized database schema
-4. **Authentication**: Secure, role-based access control
-5. **UI/UX**: Modern, responsive interface with excellent user experience
-6. **Image Management**: Complete file upload and storage system
-7. **Real-time Stats**: Dynamic dashboard with live data
-8. **Error Handling**: Comprehensive error management and user feedback
+## 📝 Documentation
 
-## 🔗 Important Files & Directories
+### Key Files
+- `CUSTOMIZABLE_PROFILE_SYSTEM.md` - Complete profile system documentation
+- `DEVELOPMENT_RULES.md` - Development guidelines and rules
+- `SECTION_MIGRATION_CHECKLIST.md` - Widget addition procedures
+- `migrate-new-sections.sql` - Universal migration script
 
-### Core Application Files
-- `src/app/layout.tsx` - Root layout with providers
-- `src/contexts/AuthContext.tsx` - Authentication state management
-- `src/contexts/ToastContext.tsx` - Global notification system
-- `src/lib/supabase.ts` - Supabase client configuration
-- `src/lib/auth.ts` - Authentication utilities
-- `src/types/index.ts` - TypeScript type definitions
+### Database Scripts
+- `add-section-configuration.sql` - Default configuration setup
+- `fix-vendhub-network-sections.sql` - Company-specific fixes
+- `create-machine-gallery.sql` - Gallery system setup
+- `service-areas-setup.sql` - Service area implementation
 
-### Key Pages
-- `src/app/admin/dashboard/page.tsx` - Admin dashboard
-- `src/app/admin/users/page.tsx` - User management
-- `src/app/admin/products/page.tsx` - Product catalog management
-- `src/app/operators/dashboard/page.tsx` - Operator dashboard
-- `src/app/operators/global-catalog/page.tsx` - Global product browsing
-- `src/app/operators/catalog/page.tsx` - Company catalog management
+---
 
-### Database Files
-- `supabase-setup.sql` - Complete database schema
-- `add-image-support.sql` - Image upload configuration
-
-This analysis provides a complete overview of the VendHub Network project, serving as a comprehensive reference for future development and AI assistance sessions. 
+**Last Updated**: December 2024
+**Status**: Production Ready
+**Next Steps**: Add new features using established patterns and migration system 

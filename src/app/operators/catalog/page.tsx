@@ -11,7 +11,13 @@ interface CompanyProduct extends GlobalProduct {
   company_product_id: string
   added_at: string
   product_type_name?: string
+  product_category_name?: string
   price?: number
+}
+
+interface ProductCategory {
+  id: string
+  name: string
 }
 
 export default function CompanyCatalogPage() {
@@ -20,8 +26,11 @@ export default function CompanyCatalogPage() {
   const [allProducts, setAllProducts] = useState<CompanyProduct[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedProductCategory, setSelectedProductCategory] = useState<string>('all')
   const [selectedProductType, setSelectedProductType] = useState<string>('all')
   const [productTypes, setProductTypes] = useState<Array<{id: string, name: string}>>([])
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([])
+  const [filteredProductTypes, setFilteredProductTypes] = useState<Array<{id: string, name: string}>>([])
   const [editingPrice, setEditingPrice] = useState<string | null>(null)
   const [priceValues, setPriceValues] = useState<{[key: string]: string}>({})
   const { showToast } = useToast()
@@ -30,12 +39,28 @@ export default function CompanyCatalogPage() {
     if (user?.company_id) {
       fetchCompanyProducts()
       fetchProductTypes()
+      fetchProductCategories()
     }
   }, [user])
 
   useEffect(() => {
     filterProducts()
-  }, [searchTerm, selectedProductType, allProducts])
+  }, [searchTerm, selectedProductCategory, selectedProductType, allProducts])
+
+  // Update filtered product types when category changes
+  useEffect(() => {
+    if (selectedProductCategory === 'all') {
+      setFilteredProductTypes(productTypes)
+      setSelectedProductType('all')
+    } else {
+      // Get product types that have products in the selected category
+      const categoryProducts = allProducts.filter(product => product.product_category_id === selectedProductCategory)
+      const categoryProductTypeIds = new Set(categoryProducts.map(product => product.product_type_id))
+      const availableTypes = productTypes.filter(type => categoryProductTypeIds.has(type.id))
+      setFilteredProductTypes(availableTypes)
+      setSelectedProductType('all')
+    }
+  }, [selectedProductCategory, allProducts, productTypes])
 
   const fetchProductTypes = async () => {
     try {
@@ -51,6 +76,20 @@ export default function CompanyCatalogPage() {
     }
   }
 
+  const fetchProductCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('product_categories')
+        .select('*')
+        .order('name')
+      
+      if (error) throw error
+      setProductCategories(data || [])
+    } catch (error) {
+      console.error('Error fetching product categories:', error)
+    }
+  }
+
   const filterProducts = () => {
     let filtered = allProducts
 
@@ -62,6 +101,11 @@ export default function CompanyCatalogPage() {
         product.product_name.toLowerCase().includes(search) ||
         (product.description && product.description.toLowerCase().includes(search))
       )
+    }
+
+    // Filter by product category
+    if (selectedProductCategory !== 'all') {
+      filtered = filtered.filter(product => product.product_category_id === selectedProductCategory)
     }
 
     // Filter by product type
@@ -97,13 +141,16 @@ export default function CompanyCatalogPage() {
         return
       }
 
-      // Then get the global product details with product type names
+      // Then get the global product details with product type and category names
       const globalProductIds = companyProducts.map(cp => cp.global_product_id)
       const { data: globalProducts, error: globalError } = await supabase
         .from('global_products')
         .select(`
           *,
           product_types (
+            name
+          ),
+          product_categories (
             name
           )
         `)
@@ -119,6 +166,7 @@ export default function CompanyCatalogPage() {
           company_product_id: cp.id,
           added_at: cp.created_at,
           product_type_name: globalProduct?.product_types?.name,
+          product_category_name: globalProduct?.product_categories?.name,
           price: cp.price || 0
         }
       }).filter(Boolean) as CompanyProduct[]
@@ -240,7 +288,7 @@ export default function CompanyCatalogPage() {
 
         {/* Search and Filter */}
         <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border">
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Search Products</label>
               <input
@@ -252,6 +300,21 @@ export default function CompanyCatalogPage() {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Category</label>
+              <select
+                value={selectedProductCategory}
+                onChange={(e) => setSelectedProductCategory(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Categories</option>
+                {productCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Type</label>
               <select
                 value={selectedProductType}
@@ -259,7 +322,7 @@ export default function CompanyCatalogPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Types</option>
-                {productTypes.map((type) => (
+                {filteredProductTypes.map((type) => (
                   <option key={type.id} value={type.id}>
                     {type.name}
                   </option>
@@ -297,6 +360,9 @@ export default function CompanyCatalogPage() {
                         Type
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Category
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Price
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -332,6 +398,11 @@ export default function CompanyCatalogPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {product.product_type_name || 'Unknown'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {product.product_category_name || 'Unknown'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">

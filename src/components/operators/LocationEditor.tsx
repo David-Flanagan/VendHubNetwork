@@ -4,20 +4,25 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Company } from '@/types'
 import { useToast } from '@/contexts/ToastContext'
+import ServiceAreaManager from './ServiceAreaManager'
+import { geocodeAddress } from '@/lib/geocoding'
+import { loadGoogleMaps } from '@/lib/google-maps-loader'
 
 interface LocationEditorProps {
   company: Company
   onUpdate: (updatedCompany: Company) => void
+  showCardWrapper?: boolean
 }
 
-export default function LocationEditor({ company, onUpdate }: LocationEditorProps) {
+export default function LocationEditor({ company, onUpdate, showCardWrapper = true }: LocationEditorProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [geocoding, setGeocoding] = useState(false)
+  const [showServiceAreas, setShowServiceAreas] = useState(false)
   const [formData, setFormData] = useState({
     address: company.address || '',
     latitude: company.latitude?.toString() || '',
     longitude: company.longitude?.toString() || '',
-    service_area_radius_miles: company.service_area_radius_miles || 50,
     map_enabled: company.map_enabled || false
   })
   const { showToast } = useToast()
@@ -39,14 +44,76 @@ export default function LocationEditor({ company, onUpdate }: LocationEditorProp
     }))
   }
 
+  const handleMapEnabledChange = async (enabled: boolean) => {
+    setFormData(prev => ({ ...prev, map_enabled: enabled }))
+    
+    // If enabling map and we have an address but no coordinates, auto-geocode
+    if (enabled && formData.address && (!formData.latitude || !formData.longitude)) {
+      setGeocoding(true)
+      try {
+        // Load Google Maps if not already loaded
+        await loadGoogleMaps()
+        
+        const result = await geocodeAddress(formData.address)
+        if (result.success) {
+          setFormData(prev => ({
+            ...prev,
+            latitude: result.latitude.toString(),
+            longitude: result.longitude.toString()
+          }))
+          showToast('Address automatically converted to coordinates!', 'success')
+        } else {
+          showToast(`Could not convert address to coordinates: ${result.error}`, 'warning')
+        }
+      } catch (error) {
+        console.error('Geocoding error:', error)
+        showToast('Failed to convert address to coordinates. Please enter coordinates manually.', 'error')
+      } finally {
+        setGeocoding(false)
+      }
+    }
+  }
+
   const handleSave = async () => {
+    // If map is enabled but no coordinates, try to geocode the address
+    if (formData.map_enabled && (!formData.latitude || !formData.longitude)) {
+      if (formData.address) {
+        setGeocoding(true)
+        try {
+          await loadGoogleMaps()
+          const result = await geocodeAddress(formData.address)
+          if (result.success) {
+            setFormData(prev => ({
+              ...prev,
+              latitude: result.latitude.toString(),
+              longitude: result.longitude.toString()
+            }))
+            showToast('Address automatically converted to coordinates!', 'success')
+          } else {
+            showToast('Please provide coordinates or a valid address for map display.', 'error')
+            setGeocoding(false)
+            return
+          }
+        } catch (error) {
+          console.error('Geocoding error:', error)
+          showToast('Please provide coordinates or a valid address for map display.', 'error')
+          setGeocoding(false)
+          return
+        } finally {
+          setGeocoding(false)
+        }
+      } else {
+        showToast('Please provide an address or coordinates when map display is enabled.', 'error')
+        return
+      }
+    }
+
     setLoading(true)
     try {
       const updateData = {
         address: formData.address,
         latitude: formData.latitude ? parseFloat(formData.latitude) : null,
         longitude: formData.longitude ? parseFloat(formData.longitude) : null,
-        service_area_radius_miles: formData.service_area_radius_miles,
         map_enabled: formData.map_enabled
       }
 
@@ -75,35 +142,73 @@ export default function LocationEditor({ company, onUpdate }: LocationEditorProp
       address: company.address || '',
       latitude: company.latitude?.toString() || '',
       longitude: company.longitude?.toString() || '',
-      service_area_radius_miles: company.service_area_radius_miles || 50,
       map_enabled: company.map_enabled || false
     })
     setIsEditing(false)
   }
 
   if (!isEditing) {
-    return (
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mr-4">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
+    const content = (
+      <>
+        {showCardWrapper && (
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mr-4">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Location & Service Area</h2>
+                <p className="text-gray-600">Manage your warehouse location and service coverage</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Location & Service Area</h2>
-              <p className="text-gray-600">Manage your warehouse location and service coverage</p>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowServiceAreas(!showServiceAreas)}
+                className="px-6 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors"
+              >
+                {showServiceAreas ? 'Hide Service Areas' : 'Manage Service Areas'}
+              </button>
+              <button
+                onClick={() => setIsEditing(true)}
+                className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors"
+              >
+                Edit Location
+              </button>
             </div>
           </div>
-          <button
-            onClick={() => setIsEditing(true)}
-            className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors"
-          >
-            Edit Location
-          </button>
-        </div>
+        )}
+
+        {!showCardWrapper && (
+          <div className="flex justify-end mb-6 space-x-3">
+            <button
+              onClick={() => setShowServiceAreas(!showServiceAreas)}
+              className="px-6 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors"
+            >
+              {showServiceAreas ? 'Hide Service Areas' : 'Manage Service Areas'}
+            </button>
+            <button
+              onClick={() => setIsEditing(true)}
+              className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Edit Location
+            </button>
+          </div>
+        )}
+
+        {/* Service Areas Manager */}
+        {showServiceAreas && (
+          <div className="mb-6">
+            <ServiceAreaManager 
+              companyId={company.id} 
+              onUpdate={() => {
+                // Refresh company data if needed
+              }}
+            />
+          </div>
+        )}
 
         <div className="space-y-4">
           {company.address && (
@@ -127,16 +232,7 @@ export default function LocationEditor({ company, onUpdate }: LocationEditorProp
             </div>
           )}
 
-          {company.service_area_radius_miles && (
-            <div className="flex items-center p-4 bg-gray-50 rounded-xl">
-              <svg className="w-5 h-5 text-gray-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="text-gray-700">
-                Service Area: {company.service_area_radius_miles} miles radius
-              </span>
-            </div>
-          )}
+          {/* Service areas are now managed through the ServiceAreaManager component */}
 
           <div className="flex items-center p-4 bg-gray-50 rounded-xl">
             <svg className="w-5 h-5 text-gray-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -147,24 +243,36 @@ export default function LocationEditor({ company, onUpdate }: LocationEditorProp
             </span>
           </div>
         </div>
-      </div>
+      </>
     )
+
+    if (showCardWrapper) {
+      return (
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+          {content}
+        </div>
+      )
+    }
+
+    return content
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
-      <div className="flex items-center mb-6">
-        <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mr-4">
-          <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
+    <>
+      {showCardWrapper && (
+        <div className="flex items-center mb-6">
+          <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mr-4">
+            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Edit Location & Service Area</h2>
+            <p className="text-gray-600">Update your warehouse location and service coverage</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Edit Location & Service Area</h2>
-          <p className="text-gray-600">Update your warehouse location and service coverage</p>
-        </div>
-      </div>
+      )}
 
       <div className="space-y-6">
         <div>
@@ -184,7 +292,7 @@ export default function LocationEditor({ company, onUpdate }: LocationEditorProp
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Latitude
+              Latitude (Optional - will be auto-generated from address)
             </label>
             <input
               type="number"
@@ -198,7 +306,7 @@ export default function LocationEditor({ company, onUpdate }: LocationEditorProp
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Longitude
+              Longitude (Optional - will be auto-generated from address)
             </label>
             <input
               type="number"
@@ -212,35 +320,80 @@ export default function LocationEditor({ company, onUpdate }: LocationEditorProp
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Service Area Radius (miles)
-          </label>
-          <input
-            type="number"
-            name="service_area_radius_miles"
-            value={formData.service_area_radius_miles}
-            onChange={handleNumberInputChange}
-            min="1"
-            max="500"
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <p className="text-sm text-gray-500 mt-1">
-            This defines how far from your warehouse you're willing to service customers
+        <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+          <div className="flex items-center mb-2">
+            <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-blue-800 font-semibold">Service Areas</span>
+          </div>
+          <p className="text-blue-700 text-sm">
+            Service areas are now managed through the Service Areas Manager above. You can create multiple service areas with different shapes and sizes.
           </p>
         </div>
 
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            name="map_enabled"
-            checked={formData.map_enabled}
-            onChange={handleInputChange}
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-          />
-          <label className="ml-2 text-sm font-semibold text-gray-700">
-            Show map on company profile page
-          </label>
+        <div className="space-y-3">
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              name="map_enabled"
+              checked={formData.map_enabled}
+              onChange={(e) => handleMapEnabledChange(e.target.checked)}
+              disabled={geocoding}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
+            />
+            <label className="ml-2 text-sm font-semibold text-gray-700">
+              Show map on company profile page
+              {geocoding && <span className="ml-2 text-blue-600">(Converting address...)</span>}
+            </label>
+          </div>
+          
+          {formData.map_enabled && (
+            <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+              <div className="flex items-center mb-2">
+                <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-blue-800 font-semibold">Map Requirements</span>
+              </div>
+              <p className="text-blue-700 text-sm mb-3">
+                To display the map on your profile page, you need latitude and longitude coordinates. 
+                These can be automatically generated from your address or entered manually.
+              </p>
+              
+              {formData.address && (!formData.latitude || !formData.longitude) && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setGeocoding(true)
+                    try {
+                      await loadGoogleMaps()
+                      const result = await geocodeAddress(formData.address)
+                      if (result.success) {
+                        setFormData(prev => ({
+                          ...prev,
+                          latitude: result.latitude.toString(),
+                          longitude: result.longitude.toString()
+                        }))
+                        showToast('Address converted to coordinates successfully!', 'success')
+                      } else {
+                        showToast(`Could not convert address: ${result.error}`, 'warning')
+                      }
+                    } catch (error) {
+                      console.error('Geocoding error:', error)
+                      showToast('Failed to convert address. Please enter coordinates manually.', 'error')
+                    } finally {
+                      setGeocoding(false)
+                    }
+                  }}
+                  disabled={geocoding}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
+                >
+                  {geocoding ? 'Converting...' : 'Convert Address to Coordinates'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex gap-4 pt-4">
@@ -254,12 +407,12 @@ export default function LocationEditor({ company, onUpdate }: LocationEditorProp
           <button
             onClick={handleCancel}
             disabled={loading}
-            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition-colors disabled:opacity-50"
+            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
         </div>
       </div>
-    </div>
+    </>
   )
 } 

@@ -34,7 +34,7 @@ export default function RootLayout({
         <AuthProvider>
           <ToastProvider>
             <Navigation />
-            <main className="min-h-screen">
+            <main className="min-h-screen pt-16">
               {children}
             </main>
             <AuthDebug />

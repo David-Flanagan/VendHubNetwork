@@ -1,6 +1,31 @@
 // User Roles
 export type UserRoleType = 'admin' | 'operator' | 'customer'
 
+// Customer specific types
+export type EmployeeCountRange = '1-10' | '11-50' | '51-200' | '200+'
+
+export interface Customer {
+  id: string
+  user_id: string
+  business_name: string
+  business_type?: string
+  employee_count_range?: EmployeeCountRange
+  address: string
+  latitude?: number
+  longitude?: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CustomerFormData {
+  business_name: string
+  business_type?: string
+  employee_count_range?: EmployeeCountRange
+  address: string
+  latitude?: number
+  longitude?: number
+}
+
 // User Profile
 export interface UserProfile {
   id: string
@@ -11,12 +36,20 @@ export interface UserProfile {
 }
 
 // Admin specific types
+export interface ProductCategory {
+  id: string
+  name: string
+  description?: string
+  created_at: string
+}
+
 export interface GlobalProduct {
   id: string
   brand_name: string
   product_name: string
   description?: string
   product_type_id: string
+  product_category_id: string
   image_url?: string
   created_at: string
   updated_at: string
@@ -58,6 +91,33 @@ export interface CompanyProduct {
   global_product?: GlobalProduct
 }
 
+// Service Areas
+export type ServiceAreaMethod = 'polygon'
+
+export interface GeoJSONPolygon {
+  type: 'Polygon'
+  coordinates: number[][][]
+}
+
+export interface ServiceArea {
+  id: string
+  company_id: string
+  name?: string
+  method: ServiceAreaMethod
+  
+  // For polygon method
+  polygon_geometry?: GeoJSONPolygon
+  
+  created_at: string
+  updated_at: string
+}
+
+export interface ServiceAreaFormData {
+  name?: string
+  method: ServiceAreaMethod
+  polygon_geometry?: GeoJSONPolygon
+}
+
 // Company Profile
 export interface Company {
   id: string
@@ -72,8 +132,9 @@ export interface Company {
   profile_image_url?: string
   latitude?: number
   longitude?: number
-  service_area_radius_miles?: number
+
   map_enabled?: boolean
+  incorporated_date?: string
   sections_config?: {
     [key: string]: {
       enabled: boolean
@@ -81,6 +142,7 @@ export interface Company {
       order: number
     }
   }
+  service_areas?: ServiceArea[]
   created_at: string
   updated_at: string
 }

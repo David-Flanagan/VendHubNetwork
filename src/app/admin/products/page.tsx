@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/contexts/ToastContext'
 import Link from 'next/link'
-import { GlobalProduct, ProductType } from '@/types'
+import { GlobalProduct, ProductType, ProductCategory } from '@/types'
 import RouteGuard from '@/components/auth/RouteGuard'
 
 interface GlobalProductWithType extends GlobalProduct {
   product_type_name?: string
+  product_category_name?: string
 }
 
 export default function AdminGlobalProductsPage() {
@@ -19,6 +20,7 @@ export default function AdminGlobalProductsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedProductType, setSelectedProductType] = useState<string>('all')
   const [productTypes, setProductTypes] = useState<ProductType[]>([])
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([])
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<GlobalProductWithType | null>(null)
   const [formData, setFormData] = useState({
@@ -26,6 +28,7 @@ export default function AdminGlobalProductsPage() {
     product_name: '',
     description: '',
     product_type_id: '',
+    product_category_id: '',
     image_url: ''
   })
   const [uploadingImage, setUploadingImage] = useState(false)
@@ -33,6 +36,7 @@ export default function AdminGlobalProductsPage() {
   useEffect(() => {
     fetchProducts()
     fetchProductTypes()
+    fetchProductCategories()
   }, [])
 
   useEffect(() => {
@@ -48,16 +52,20 @@ export default function AdminGlobalProductsPage() {
           *,
           product_types (
             name
+          ),
+          product_categories (
+            name
           )
         `)
         .order('product_name')
 
       if (error) throw error
       
-      // Transform the data to include product type name
+      // Transform the data to include product type and category names
       const transformedData = data?.map(product => ({
         ...product,
-        product_type_name: product.product_types?.name
+        product_type_name: product.product_types?.name,
+        product_category_name: product.product_categories?.name
       })) || []
       
       setProducts(transformedData)
@@ -81,6 +89,20 @@ export default function AdminGlobalProductsPage() {
       setProductTypes(data || [])
     } catch (error) {
       console.error('Error fetching product types:', error)
+    }
+  }
+
+  const fetchProductCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('product_categories')
+        .select('*')
+        .order('name')
+      
+      if (error) throw error
+      setProductCategories(data || [])
+    } catch (error) {
+      console.error('Error fetching product categories:', error)
     }
   }
 
@@ -134,7 +156,7 @@ export default function AdminGlobalProductsPage() {
   }
 
   const handleAddProduct = async () => {
-    if (!formData.brand_name || !formData.product_name || !formData.product_type_id) {
+    if (!formData.brand_name || !formData.product_name || !formData.product_type_id || !formData.product_category_id) {
       showToast('Please fill in all required fields', 'error')
       return
     }
@@ -147,6 +169,7 @@ export default function AdminGlobalProductsPage() {
           product_name: formData.product_name,
           description: formData.description || null,
           product_type_id: formData.product_type_id,
+          product_category_id: formData.product_category_id,
           image_url: formData.image_url || null
         })
 
@@ -158,6 +181,7 @@ export default function AdminGlobalProductsPage() {
         product_name: '',
         description: '',
         product_type_id: '',
+        product_category_id: '',
         image_url: ''
       })
       setShowAddModal(false)
@@ -169,7 +193,7 @@ export default function AdminGlobalProductsPage() {
   }
 
   const handleEditProduct = async () => {
-    if (!editingProduct || !formData.brand_name || !formData.product_name || !formData.product_type_id) {
+    if (!editingProduct || !formData.brand_name || !formData.product_name || !formData.product_type_id || !formData.product_category_id) {
       showToast('Please fill in all required fields', 'error')
       return
     }
@@ -182,6 +206,7 @@ export default function AdminGlobalProductsPage() {
           product_name: formData.product_name,
           description: formData.description || null,
           product_type_id: formData.product_type_id,
+          product_category_id: formData.product_category_id,
           image_url: formData.image_url || null
         })
         .eq('id', editingProduct.id)
@@ -194,6 +219,7 @@ export default function AdminGlobalProductsPage() {
         product_name: '',
         description: '',
         product_type_id: '',
+        product_category_id: '',
         image_url: ''
       })
       setShowAddModal(false)
@@ -233,6 +259,7 @@ export default function AdminGlobalProductsPage() {
       product_name: product.product_name,
       description: product.description || '',
       product_type_id: product.product_type_id,
+      product_category_id: product.product_category_id,
       image_url: product.image_url || ''
     })
     setShowAddModal(true)
@@ -244,6 +271,7 @@ export default function AdminGlobalProductsPage() {
       product_name: '',
       description: '',
       product_type_id: '',
+      product_category_id: '',
       image_url: ''
     })
     setShowAddModal(false)
@@ -327,6 +355,9 @@ export default function AdminGlobalProductsPage() {
                         Type
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Category
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Description
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -359,6 +390,11 @@ export default function AdminGlobalProductsPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {product.product_type_name || 'Unknown'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {product.product_category_name || 'Unknown'}
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -437,6 +473,24 @@ export default function AdminGlobalProductsPage() {
                         {productTypes.map((type) => (
                           <option key={type.id} value={type.id}>
                             {type.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Product Category *
+                      </label>
+                      <select
+                        value={formData.product_category_id}
+                        onChange={(e) => setFormData({ ...formData, product_category_id: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      >
+                        <option value="">Select a category</option>
+                        {productCategories.map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
                           </option>
                         ))}
                       </select>

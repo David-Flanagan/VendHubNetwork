@@ -6,8 +6,8 @@ import { useEffect } from 'react'
 
 interface RouteGuardProps {
   children: React.ReactNode
-  requiredRole?: 'admin' | 'operator'
-  requiredRoles?: ('admin' | 'operator')[]
+  requiredRole?: 'admin' | 'operator' | 'customer'
+  requiredRoles?: ('admin' | 'operator' | 'customer')[]
   requireAuth?: boolean
   redirectTo?: string
 }
@@ -19,7 +19,7 @@ export default function RouteGuard({
   requireAuth = true,
   redirectTo = '/'
 }: RouteGuardProps) {
-  const { user, loading, isAdmin, isOperator } = useAuth()
+  const { user, loading, isAdmin, isOperator, isCustomer } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
@@ -36,7 +36,8 @@ export default function RouteGuard({
       const rolesToCheck = requiredRoles || [requiredRole!]
       const hasRequiredRole = rolesToCheck.some(role => 
         (role === 'admin' && isAdmin) ||
-        (role === 'operator' && isOperator)
+        (role === 'operator' && isOperator) ||
+        (role === 'customer' && isCustomer)
       )
 
       if (!hasRequiredRole) {
@@ -68,7 +69,8 @@ export default function RouteGuard({
     const rolesToCheck = requiredRoles || [requiredRole!]
     const hasRequiredRole = rolesToCheck.some(role => 
       (role === 'admin' && isAdmin) ||
-      (role === 'operator' && isOperator)
+      (role === 'operator' && isOperator) ||
+      (role === 'customer' && isCustomer)
     )
 
     if (!hasRequiredRole) {

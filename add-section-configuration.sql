@@ -4,10 +4,13 @@
 -- Add section configuration column to companies table
 ALTER TABLE companies 
 ADD COLUMN IF NOT EXISTS sections_config JSONB DEFAULT '{
-  "company_info": {"enabled": true, "mandatory": true, "order": 1},
-  "profile_image": {"enabled": true, "mandatory": true, "order": 2},
+  "hero": {"enabled": true, "mandatory": true, "order": 1},
+  "company_info": {"enabled": true, "mandatory": true, "order": 2},
   "location": {"enabled": true, "mandatory": true, "order": 3},
-  "vendhub_stats": {"enabled": false, "mandatory": false, "order": 4}
+  "product_catalog": {"enabled": true, "mandatory": true, "order": 4},
+  "machine_templates": {"enabled": true, "mandatory": true, "order": 5},
+  "machine_gallery": {"enabled": true, "mandatory": false, "order": 6},
+  "vendhub_stats": {"enabled": false, "mandatory": false, "order": 7}
 }'::jsonb;
 
 -- Add comment for documentation
@@ -19,10 +22,13 @@ CREATE INDEX IF NOT EXISTS idx_companies_sections_config ON companies USING GIN 
 -- Update existing companies to have default section configuration
 UPDATE companies 
 SET sections_config = '{
-  "company_info": {"enabled": true, "mandatory": true, "order": 1},
-  "profile_image": {"enabled": true, "mandatory": true, "order": 2},
+  "hero": {"enabled": true, "mandatory": true, "order": 1},
+  "company_info": {"enabled": true, "mandatory": true, "order": 2},
   "location": {"enabled": true, "mandatory": true, "order": 3},
-  "vendhub_stats": {"enabled": false, "mandatory": false, "order": 4}
+  "product_catalog": {"enabled": true, "mandatory": true, "order": 4},
+  "machine_templates": {"enabled": true, "mandatory": true, "order": 5},
+  "machine_gallery": {"enabled": true, "mandatory": false, "order": 6},
+  "vendhub_stats": {"enabled": false, "mandatory": false, "order": 7}
 }'::jsonb
 WHERE sections_config IS NULL;
 

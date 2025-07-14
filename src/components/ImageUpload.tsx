@@ -136,11 +136,19 @@ export default function ImageUpload({
         onDrop={handleDrop}
       >
         {displayImage ? (
-          <img
-            src={displayImage}
-            alt="Profile preview"
-            className="w-full h-full object-cover"
-          />
+          <div className="w-full h-full">
+            <img
+              src={displayImage}
+              alt="Profile preview"
+              className="w-full h-full object-cover object-center"
+              style={{
+                minWidth: '100%',
+                minHeight: '100%',
+                maxWidth: '100%',
+                maxHeight: '100%'
+              }}
+            />
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
             <svg className="w-12 h-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

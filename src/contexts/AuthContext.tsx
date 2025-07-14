@@ -9,6 +9,7 @@ interface AuthContextType {
   loading: boolean
   isAdmin: boolean
   isOperator: boolean
+  isCustomer: boolean
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   isAdmin: false,
   isOperator: false,
+  isCustomer: false,
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -90,6 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading: !mounted || loading,
     isAdmin: user?.role === 'admin',
     isOperator: user?.role === 'operator',
+    isCustomer: user?.role === 'customer',
   }
 
   // Prevent hydration mismatch by not rendering until mounted

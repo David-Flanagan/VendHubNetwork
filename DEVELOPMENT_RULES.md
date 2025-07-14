@@ -60,10 +60,12 @@
 ## Project-Specific Rules
 
 ### VendHub Network Specific
-- Use the user_roles table system for role checks (not JWT claims)
+- Use the users table system for role checks (not JWT claims)
 - Implement operator-customer relationship features
 - Build global product catalog functionality
 - Focus on vending machine marketplace features
+- Follow the universal widget system for profile sections
+- Use the migration system when adding new sections
 
 ### UI/UX Preferences
 - Use React and Next.js for frontend

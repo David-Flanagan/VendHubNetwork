@@ -14,7 +14,7 @@ import ProductCatalogSection from '@/components/profile/ProductCatalogSection'
 import MachineTemplatesSection from '@/components/profile/MachineTemplatesSection'
 import VendHubStatsSection from '@/components/profile/VendHubStatsSection'
 import MachineGallerySection from '@/components/profile/MachineGallerySection'
-import LocationEditor from '@/components/operators/LocationEditor'
+import UnifiedLocationManager from '@/components/operators/UnifiedLocationManager'
 import {
   DndContext,
   closestCenter,
@@ -95,7 +95,8 @@ export default function EditProfile() {
           location: { enabled: true, mandatory: true, order: 3 },
           product_catalog: { enabled: true, mandatory: true, order: 4 },
           machine_templates: { enabled: true, mandatory: true, order: 5 },
-          vendhub_stats: { enabled: false, mandatory: false, order: 6 }
+          machine_gallery: { enabled: true, mandatory: false, order: 6 },
+          vendhub_stats: { enabled: false, mandatory: false, order: 7 }
         }
         
         // Use database config if it exists, otherwise use default
@@ -343,7 +344,7 @@ export default function EditProfile() {
       case 'company_info':
         return <CompanyInfoSection company={company} onUpdate={setCompany} />
       case 'location':
-        return <LocationEditor company={company} onUpdate={setCompany} />
+        return <UnifiedLocationManager company={company} onUpdate={setCompany} showCardWrapper={false} />
       case 'product_catalog':
         return <ProductCatalogSection company={company} onUpdate={setCompany} />
       case 'machine_templates':

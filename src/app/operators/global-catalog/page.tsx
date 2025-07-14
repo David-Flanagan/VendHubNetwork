@@ -9,6 +9,12 @@ import RouteGuard from '@/components/auth/RouteGuard'
 
 interface GlobalProductWithType extends GlobalProduct {
   product_type_name?: string
+  product_category_name?: string
+}
+
+interface ProductCategory {
+  id: string
+  name: string
 }
 
 export default function GlobalCatalogPage() {
@@ -19,13 +25,17 @@ export default function GlobalCatalogPage() {
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
   const [companyProducts, setCompanyProducts] = useState<Set<string>>(new Set())
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedProductCategory, setSelectedProductCategory] = useState<string>('all')
   const [selectedProductType, setSelectedProductType] = useState<string>('all')
   const [productTypes, setProductTypes] = useState<Array<{id: string, name: string}>>([])
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([])
+  const [filteredProductTypes, setFilteredProductTypes] = useState<Array<{id: string, name: string}>>([])
   const { showToast } = useToast()
 
   useEffect(() => {
     fetchGlobalProducts()
     fetchProductTypes()
+    fetchProductCategories()
     if (user?.company_id) {
       fetchCompanyProducts()
     }
@@ -33,7 +43,22 @@ export default function GlobalCatalogPage() {
 
   useEffect(() => {
     filterProducts()
-  }, [searchTerm, selectedProductType, allProducts])
+  }, [searchTerm, selectedProductCategory, selectedProductType, allProducts])
+
+  // Update filtered product types when category changes
+  useEffect(() => {
+    if (selectedProductCategory === 'all') {
+      setFilteredProductTypes(productTypes)
+      setSelectedProductType('all')
+    } else {
+      // Get product types that have products in the selected category
+      const categoryProducts = allProducts.filter(product => product.product_category_id === selectedProductCategory)
+      const categoryProductTypeIds = new Set(categoryProducts.map(product => product.product_type_id))
+      const availableTypes = productTypes.filter(type => categoryProductTypeIds.has(type.id))
+      setFilteredProductTypes(availableTypes)
+      setSelectedProductType('all')
+    }
+  }, [selectedProductCategory, allProducts, productTypes])
 
   const fetchGlobalProducts = async () => {
     try {
@@ -43,16 +68,20 @@ export default function GlobalCatalogPage() {
           *,
           product_types (
             name
+          ),
+          product_categories (
+            name
           )
         `)
         .order('product_name')
 
       if (error) throw error
       
-      // Transform the data to include product type name
+      // Transform the data to include product type and category names
       const transformedData = data?.map(product => ({
         ...product,
-        product_type_name: product.product_types?.name
+        product_type_name: product.product_types?.name,
+        product_category_name: product.product_categories?.name
       })) || []
       
       setProducts(transformedData)
@@ -78,6 +107,20 @@ export default function GlobalCatalogPage() {
     }
   }
 
+  const fetchProductCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('product_categories')
+        .select('*')
+        .order('name')
+      
+      if (error) throw error
+      setProductCategories(data || [])
+    } catch (error) {
+      console.error('Error fetching product categories:', error)
+    }
+  }
+
   const filterProducts = () => {
     let filtered = allProducts
 
@@ -89,6 +132,11 @@ export default function GlobalCatalogPage() {
         product.product_name.toLowerCase().includes(search) ||
         (product.description && product.description.toLowerCase().includes(search))
       )
+    }
+
+    // Filter by product category
+    if (selectedProductCategory !== 'all') {
+      filtered = filtered.filter(product => product.product_category_id === selectedProductCategory)
     }
 
     // Filter by product type
@@ -205,17 +253,23 @@ export default function GlobalCatalogPage() {
               <p className="text-gray-600 mt-2">Browse and add products to your company catalog</p>
             </div>
             <div className="flex space-x-4">
+              <a
+                href="/operators/add-product"
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+              >
+                Add New Product
+              </a>
               {selectedProducts.size > 0 && (
                 <button
                   onClick={addToCompanyCatalog}
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                 >
                   Add {selectedProducts.size} to Catalog
                 </button>
               )}
               <a
                 href="/operators/catalog"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
               >
                 View My Catalog
               </a>
@@ -225,7 +279,7 @@ export default function GlobalCatalogPage() {
 
         {/* Search and Filter */}
         <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border">
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Search Products</label>
               <input
@@ -237,6 +291,21 @@ export default function GlobalCatalogPage() {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Category</label>
+              <select
+                value={selectedProductCategory}
+                onChange={(e) => setSelectedProductCategory(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Categories</option>
+                {productCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Type</label>
               <select
                 value={selectedProductType}
@@ -244,7 +313,7 @@ export default function GlobalCatalogPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Types</option>
-                {productTypes.map((type) => (
+                {filteredProductTypes.map((type) => (
                   <option key={type.id} value={type.id}>
                     {type.name}
                   </option>
@@ -318,9 +387,14 @@ export default function GlobalCatalogPage() {
                         )}
 
                         <div className="flex items-center justify-between">
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {product.product_type_name || 'Unknown'}
-                          </span>
+                          <div className="flex flex-col gap-1">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {product.product_type_name || 'Unknown'}
+                            </span>
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              {product.product_category_name || 'Unknown'}
+                            </span>
+                          </div>
                           
                           {isInCompanyCatalog ? (
                             <button

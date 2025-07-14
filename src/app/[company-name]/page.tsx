@@ -1,22 +1,24 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useEffect, useState, useMemo } from 'react'
+import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Company, GlobalProduct } from '@/types'
-import CompanyMap from '@/components/maps/CompanyMap'
+import ServiceAreasMap from '@/components/maps/ServiceAreasMap'
 import PublicVendHubStats from '@/components/profile/PublicVendHubStats'
 import MachineGalleryWidget from '@/components/profile/MachineGalleryWidget'
 
 interface CompanyProduct extends GlobalProduct {
   price: number
   is_available: boolean
+  product_category_name?: string
 }
 
 interface MachineTemplate {
   id: string
   name: string
   category: string
+  category_id: string
   image_url?: string
   dimensions: string
   slot_count: number
@@ -30,8 +32,15 @@ interface SectionConfig {
   }
 }
 
+interface ProductCategory {
+  id: string
+  name: string
+}
+
 export default function CompanyProfilePage() {
   const params = useParams()
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const companyName = params['company-name'] as string
   const [loading, setLoading] = useState(true)
   const [company, setCompany] = useState<Company | null>(null)
@@ -39,12 +48,20 @@ export default function CompanyProfilePage() {
   const [allProducts, setAllProducts] = useState<CompanyProduct[]>([])
   const [machineTemplates, setMachineTemplates] = useState<MachineTemplate[]>([])
   const [allMachineTemplates, setAllMachineTemplates] = useState<MachineTemplate[]>([])
+  const [selectedProductCategory, setSelectedProductCategory] = useState<string>('all')
   const [selectedProductType, setSelectedProductType] = useState<string>('all')
   const [selectedMachineCategory, setSelectedMachineCategory] = useState<string>('all')
   const [productTypes, setProductTypes] = useState<Array<{id: string, name: string}>>([])
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([])
+  const [filteredProductTypes, setFilteredProductTypes] = useState<Array<{id: string, name: string}>>([])
   const [machineCategories, setMachineCategories] = useState<Array<{id: string, name: string}>>([])
   const [searchTerm, setSearchTerm] = useState('')
+  const [machineSearchTerm, setMachineSearchTerm] = useState('')
   const [sectionsConfig, setSectionsConfig] = useState<SectionConfig>({})
+
+  // Check if user came from search results
+  const fromSearch = searchParams.get('from') === 'search'
+  const searchLocation = searchParams.get('location')
 
   useEffect(() => {
     if (companyName) {
@@ -54,11 +71,49 @@ export default function CompanyProfilePage() {
 
   useEffect(() => {
     filterProducts()
-  }, [searchTerm, selectedProductType, allProducts])
+  }, [searchTerm, selectedProductCategory, selectedProductType, allProducts])
+
+  // Memoized: Only product types that have products
+  const availableProductTypes = useMemo(() =>
+    productTypes.filter(type =>
+      allProducts.some(product => product.product_type_id === type.id)
+    ),
+    [productTypes, allProducts]
+  )
+
+  // Memoized: Only product categories that have products
+  const availableProductCategories = useMemo(() =>
+    productCategories.filter(category =>
+      allProducts.some(product => product.product_category_id === category.id)
+    ),
+    [productCategories, allProducts]
+  )
+
+  // Memoized: Only machine categories that have machines
+  const availableMachineCategories = useMemo(() =>
+    machineCategories.filter(category =>
+      allMachineTemplates.some(template => template.category_id === category.id)
+    ),
+    [machineCategories, allMachineTemplates]
+  )
+
+  // Update filtered product types when category changes
+  useEffect(() => {
+    if (selectedProductCategory === 'all') {
+      setFilteredProductTypes(availableProductTypes)
+      setSelectedProductType('all')
+    } else {
+      const categoryProducts = allProducts.filter(product => product.product_category_id === selectedProductCategory)
+      const categoryProductTypeIds = new Set(categoryProducts.map(product => product.product_type_id))
+      const availableTypes = availableProductTypes.filter(type => categoryProductTypeIds.has(type.id))
+      setFilteredProductTypes(availableTypes)
+      setSelectedProductType('all')
+    }
+  }, [selectedProductCategory, allProducts, availableProductTypes])
 
   useEffect(() => {
     filterMachineTemplates()
-  }, [selectedMachineCategory, allMachineTemplates])
+  }, [selectedMachineCategory, machineSearchTerm, allMachineTemplates])
 
   const fetchCompanyProfile = async () => {
     try {
@@ -90,8 +145,9 @@ export default function CompanyProfilePage() {
       // Fetch machine templates
       await fetchMachineTemplates(companyData.id)
       
-      // Fetch product types and machine categories
+      // Fetch product types, product categories, and machine categories
       await fetchProductTypes()
+      await fetchProductCategories()
       await fetchMachineCategories()
 
     } catch (error) {
@@ -114,6 +170,21 @@ export default function CompanyProfilePage() {
   // Helper function to get section order
   const getSectionOrder = (sectionId: string): number => {
     return sectionsConfig[sectionId]?.order || 999
+  }
+
+  // Navigation functions
+  const handleBackToSearch = () => {
+    if (fromSearch && searchLocation) {
+      // Return to browse-operators page with the same location
+      router.push(`/browse-operators?location=${encodeURIComponent(searchLocation)}`)
+    } else {
+      // Fallback to browse-operators page
+      router.push('/browse-operators')
+    }
+  }
+
+  const handleBackToBrowse = () => {
+    router.push('/browse-operators')
   }
 
   // Helper function to render sections in order
@@ -207,7 +278,7 @@ export default function CompanyProfilePage() {
       },
       {
         id: 'location',
-        component: isSectionEnabled('location') && company.map_enabled && company.latitude && company.longitude && (
+        component: isSectionEnabled('location') && company.map_enabled && (
           <div key="location" className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 mb-12">
             <div className="flex items-center mb-8">
               <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mr-4">
@@ -222,17 +293,20 @@ export default function CompanyProfilePage() {
               </div>
             </div>
             
-            <CompanyMap company={company} />
-            
-            {company.service_area_radius_miles && company.service_area_radius_miles > 0 && (
-              <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+            {company.latitude && company.longitude ? (
+              <ServiceAreasMap company={company} />
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
                 <div className="flex items-center">
-                  <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg className="w-6 h-6 text-yellow-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
-                  <span className="text-blue-800 font-semibold">
-                    We service areas within {company.service_area_radius_miles} miles of our warehouse
-                  </span>
+                  <div>
+                    <h3 className="text-lg font-semibold text-yellow-800">Map Setup Required</h3>
+                    <p className="text-yellow-700 mt-1">
+                      Map display is enabled but warehouse coordinates are not set. Please update your location in the operator dashboard to show your service area map.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -269,6 +343,33 @@ export default function CompanyProfilePage() {
                 </div>
               </div>
               
+              {/* Product Category Filter Buttons */}
+              <div className="flex flex-wrap gap-3 mb-6">
+                <button
+                  onClick={() => setSelectedProductCategory('all')}
+                  className={`px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${
+                    selectedProductCategory === 'all'
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-200'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md'
+                  }`}
+                >
+                  All Categories
+                </button>
+                {availableProductCategories.map((category) => (
+                  <button
+                    key={category.id}
+                    onClick={() => setSelectedProductCategory(category.id)}
+                    className={`px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${
+                      selectedProductCategory === category.id
+                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-200'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md'
+                    }`}
+                  >
+                    {category.name}
+                  </button>
+                ))}
+              </div>
+
               {/* Product Type Filter Buttons */}
               <div className="flex flex-wrap gap-3">
                 <button
@@ -281,7 +382,7 @@ export default function CompanyProfilePage() {
                 >
                   All Products
                 </button>
-                {productTypes.map((type) => (
+                {filteredProductTypes.map((type) => (
                   <button
                     key={type.id}
                     onClick={() => setSelectedProductType(type.id)}
@@ -347,8 +448,25 @@ export default function CompanyProfilePage() {
               <h2 className="text-3xl font-bold text-gray-900">Available Machines</h2>
             </div>
             
-            {/* Machine Category Filter Buttons */}
-            <div className="flex flex-wrap gap-3 mb-8">
+            {/* Search and Filter */}
+            <div className="mb-8">
+              <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                <div className="relative flex-1">
+                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search machines..."
+                    value={machineSearchTerm}
+                    onChange={(e) => setMachineSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              
+              {/* Machine Category Filter Buttons */}
+              <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => setSelectedMachineCategory('all')}
                 className={`px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${
@@ -359,7 +477,7 @@ export default function CompanyProfilePage() {
               >
                 All Machines
               </button>
-              {machineCategories.map((category) => (
+              {availableMachineCategories.map((category) => (
                 <button
                   key={category.id}
                   onClick={() => setSelectedMachineCategory(category.id)}
@@ -373,41 +491,33 @@ export default function CompanyProfilePage() {
                 </button>
               ))}
             </div>
-
-            {/* Machine Templates Grid */}
+            </div>
+            {/* Machine Templates Grid - Redesigned */}
             {machineTemplates.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {machineTemplates.map((template) => (
-                  <div key={template.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                    <div className="aspect-video bg-gray-100 flex items-center justify-center relative overflow-hidden">
+                  <div
+                    key={template.id}
+                    className="bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                  >
+                    <div className="aspect-square bg-gray-100 flex items-center justify-center relative overflow-hidden">
                       {template.image_url ? (
                         <img
                           src={template.image_url}
                           alt={template.name}
-                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
+                          className="w-full h-full object-contain transition-transform duration-300 hover:scale-105"
                         />
                       ) : (
-                        <svg className="w-20 h-20 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                         </svg>
                       )}
                     </div>
-                    <div className="p-6">
-                      <h3 className="font-bold text-gray-900 mb-4 text-xl">{template.name}</h3>
-                      <div className="space-y-3">
-                        <div className="flex items-center">
-                          <span className="text-orange-600 font-semibold w-20">Category:</span>
-                          <span className="text-gray-700">{template.category}</span>
-                        </div>
-                        <div className="flex items-center">
-                          <span className="text-orange-600 font-semibold w-20">Dimensions:</span>
-                          <span className="text-gray-700">{template.dimensions}</span>
-                        </div>
-                        <div className="flex items-center">
-                          <span className="text-orange-600 font-semibold w-20">Slots:</span>
-                          <span className="text-gray-700">{template.slot_count}</span>
-                        </div>
-                      </div>
+                    <div className="p-6 flex flex-col items-center">
+                      <h3 className="font-bold text-gray-900 mb-2 text-lg leading-tight text-center">{template.name}</h3>
+                      <span className="inline-block bg-orange-100 text-orange-700 text-xs font-semibold px-3 py-1 rounded-full">
+                        {template.category}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -461,9 +571,16 @@ export default function CompanyProfilePage() {
             product_name,
             description,
             product_type_id,
+            product_category_id,
             image_url,
             created_at,
-            updated_at
+            updated_at,
+            product_types (
+              name
+            ),
+            product_categories (
+              name
+            )
           )
         `)
         .eq('company_id', companyId)
@@ -474,7 +591,9 @@ export default function CompanyProfilePage() {
       const companyProducts: CompanyProduct[] = (data || []).map((item: any) => ({
         ...item.global_product,
         price: item.price,
-        is_available: item.is_available
+        is_available: item.is_available,
+        product_category_id: item.global_product.product_category_id,
+        product_category_name: item.global_product.product_categories?.name
       }))
 
       setProducts(companyProducts)
@@ -529,6 +648,7 @@ export default function CompanyProfilePage() {
         id: item.machine_template.id,
         name: item.machine_template.name,
         category: categoryMap.get(item.machine_template.id) || 'Unknown',
+        category_id: item.machine_template.category_id,
         image_url: item.machine_template.image_url,
         dimensions: item.machine_template.dimensions || 'N/A',
         slot_count: item.machine_template.slot_count || 0
@@ -552,6 +672,20 @@ export default function CompanyProfilePage() {
       setProductTypes(data || [])
     } catch (error) {
       console.error('Error fetching product types:', error)
+    }
+  }
+
+  const fetchProductCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('product_categories')
+        .select('*')
+        .order('name')
+      
+      if (error) throw error
+      setProductCategories(data || [])
+    } catch (error) {
+      console.error('Error fetching product categories:', error)
     }
   }
 
@@ -582,6 +716,11 @@ export default function CompanyProfilePage() {
       )
     }
 
+    // Filter by product category
+    if (selectedProductCategory !== 'all') {
+      filtered = filtered.filter(product => product.product_category_id === selectedProductCategory)
+    }
+
     // Filter by product type
     if (selectedProductType !== 'all') {
       filtered = filtered.filter(product => product.product_type_id === selectedProductType)
@@ -593,9 +732,18 @@ export default function CompanyProfilePage() {
   const filterMachineTemplates = () => {
     let filtered = allMachineTemplates
 
+    // Filter by search term
+    if (machineSearchTerm.trim()) {
+      const search = machineSearchTerm.toLowerCase()
+      filtered = filtered.filter(template => 
+        template.name.toLowerCase().includes(search) ||
+        template.category.toLowerCase().includes(search)
+      )
+    }
+
     // Filter by machine category
     if (selectedMachineCategory !== 'all') {
-      filtered = filtered.filter(template => template.category === selectedMachineCategory)
+      filtered = filtered.filter(template => template.category_id === selectedMachineCategory)
     }
 
     setMachineTemplates(filtered)
@@ -623,12 +771,14 @@ export default function CompanyProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section with Profile Image */}
-      <div className="relative h-[500px] overflow-hidden">
+      <div className="relative w-full aspect-[21/9] overflow-hidden -mt-16">
         {company.profile_image_url ? (
-          <div 
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={{ backgroundImage: `url(${company.profile_image_url})` }}
-          >
+          <div className="absolute inset-0 w-full h-full">
+            <img 
+              src={company.profile_image_url}
+              alt={`${company.name} profile`}
+              className="w-full h-full object-cover object-center"
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent"></div>
           </div>
         ) : (
@@ -637,7 +787,7 @@ export default function CompanyProfilePage() {
         
         {/* Hero Content */}
         <div className="relative h-full flex items-end">
-          <div className="w-full bg-gradient-to-t from-black/80 via-black/40 to-transparent pb-16 pt-32">
+          <div className="w-full bg-gradient-to-t from-black/80 via-black/40 to-transparent pb-16 pt-48">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="text-white">
                 <h1 className="text-5xl md:text-6xl font-bold mb-4 leading-tight">
@@ -654,11 +804,65 @@ export default function CompanyProfilePage() {
         </div>
       </div>
 
+      {/* Navigation Header */}
+      {(fromSearch || true) && (
+        <div className="bg-white border-b border-gray-200 sticky top-16 z-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center justify-between">
+              {/* Breadcrumb */}
+              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                <button
+                  onClick={fromSearch ? handleBackToSearch : handleBackToBrowse}
+                  className="flex items-center hover:text-blue-600 transition-colors"
+                >
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  {fromSearch ? 'Back to Search Results' : 'Back to Browse'}
+                </button>
+                <span className="text-gray-400">/</span>
+                <span className="text-gray-900 font-medium">{company.name}</span>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center space-x-3">
+                {fromSearch && searchLocation && (
+                  <div className="text-sm text-gray-500">
+                    <span className="font-medium">Searching near:</span> {searchLocation}
+                  </div>
+                )}
+                <button
+                  onClick={fromSearch ? handleBackToSearch : handleBackToBrowse}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                >
+                  {fromSearch ? 'Return to Search' : 'Browse More Companies'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-10">
         {/* Render sections in the order specified by the database configuration */}
         {renderSectionsInOrder()}
       </div>
+
+      {/* Floating Return Button */}
+      {fromSearch && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <button
+            onClick={handleBackToSearch}
+            className="bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-200 hover:scale-110"
+            title="Return to Search Results"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+          </button>
+        </div>
+      )}
     </div>
   )
 } 

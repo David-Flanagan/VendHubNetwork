@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react'
 
 export interface Toast {
   id: string
@@ -33,33 +33,25 @@ interface ToastProviderProps {
 export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   const [toasts, setToasts] = useState<Toast[]>([])
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info', duration: number = 3000) => {
-    console.log('showToast called:', { message, type, duration })
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info', duration: number = 3000) => {
     const id = Date.now().toString() + Math.random().toString(36).substr(2, 9)
     const newToast: Toast = { id, message, type, duration }
     
-    console.log('Adding toast to state:', newToast)
-    setToasts(prev => {
-      console.log('Previous toasts:', prev)
-      const updated = [...prev, newToast]
-      console.log('Updated toasts:', updated)
-      return updated
-    })
+    setToasts(prev => [...prev, newToast])
     
     // Auto remove toast after specified duration
     setTimeout(() => {
-      console.log('Removing toast:', id)
       setToasts(prev => prev.filter(toast => toast.id !== id))
     }, duration)
-  }
+  }, [])
 
-  const removeToast = (id: string) => {
+  const removeToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(toast => toast.id !== id))
-  }
+  }, [])
 
-  const clearToasts = () => {
+  const clearToasts = useCallback(() => {
     setToasts([])
-  }
+  }, [])
 
   return (
     <ToastContext.Provider value={{ toasts, showToast, removeToast, clearToasts }}>
@@ -71,8 +63,6 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
 
 const ToastContainer: React.FC = () => {
   const { toasts, removeToast } = useToast()
-
-  console.log('ToastContainer rendering with toasts:', toasts)
 
   const getToastStyles = (type: Toast['type']) => {
     switch (type) {

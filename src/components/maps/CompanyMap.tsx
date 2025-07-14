@@ -95,7 +95,7 @@ const MapComponent = ({ company }: MapComponentProps) => {
         const lat1 = companyLocation.lat * Math.PI / 180
         const lon1 = companyLocation.lng * Math.PI / 180
         const brng = bearing * Math.PI / 180
-        const R = 6371 // Earth's radius in km
+        const R = 3959 // Earth's radius in miles
 
         const lat2 = Math.asin(
           Math.sin(lat1) * Math.cos(distance / R) +

@@ -210,12 +210,20 @@ export default function GlobalMachineTemplatesPage() {
               <h1 className="text-3xl font-bold text-gray-900">Global Machine Templates</h1>
               <p className="text-gray-600 mt-2">Browse and manage vending machine templates</p>
             </div>
-            <a
-              href="/operators/machine-templates"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-            >
-              View My Templates
-            </a>
+            <div className="flex space-x-3">
+              <a
+                href="/operators/machine-templates/builder"
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+              >
+                Create Template
+              </a>
+              <a
+                href="/operators/machine-templates"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                View My Templates
+              </a>
+            </div>
           </div>
         </div>
 

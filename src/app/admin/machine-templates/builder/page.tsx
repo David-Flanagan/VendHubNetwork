@@ -21,7 +21,7 @@ interface ProductType {
 interface Slot {
   rowNumber: number
   slotNumber: number
-  productTypeId: string
+  productTypeIds: string[]
   mdbCode: string
 }
 
@@ -34,7 +34,12 @@ export default function MachineTemplateBuilderPage() {
   const [formData, setFormData] = useState({
     name: '',
     categoryId: '',
-    dimensions: '',
+    modelNumber: '',
+    lengthInches: '',
+    widthInches: '',
+    heightInches: '',
+    isOutdoorRated: false,
+    technicalDescription: '',
     imageFile: null as File | null
   })
 
@@ -108,7 +113,7 @@ export default function MachineTemplateBuilderPage() {
         newSlots.push({
           rowNumber: rowIndex + 1,
           slotNumber: i,
-          productTypeId: '',
+          productTypeIds: [],
           mdbCode: ''
         })
       }
@@ -116,7 +121,7 @@ export default function MachineTemplateBuilderPage() {
     setSlots(newSlots)
   }
 
-  const updateSlot = (rowNumber: number, slotNumber: number, field: 'productTypeId' | 'mdbCode', value: string) => {
+  const updateSlot = (rowNumber: number, slotNumber: number, field: 'productTypeIds' | 'mdbCode', value: any) => {
     const newSlots = [...slots]
     const slotIndex = newSlots.findIndex(s => s.rowNumber === rowNumber && s.slotNumber === slotNumber)
     
@@ -126,12 +131,26 @@ export default function MachineTemplateBuilderPage() {
       newSlots.push({
         rowNumber,
         slotNumber,
-        productTypeId: field === 'productTypeId' ? value : '',
+        productTypeIds: field === 'productTypeIds' ? value : [],
         mdbCode: field === 'mdbCode' ? value : ''
       })
     }
     
     setSlots(newSlots)
+  }
+
+  const addProductTypeToSlot = (rowNumber: number, slotNumber: number, productTypeId: string) => {
+    const slot = slots.find(s => s.rowNumber === rowNumber && s.slotNumber === slotNumber)
+    if (slot && !slot.productTypeIds.includes(productTypeId)) {
+      updateSlot(rowNumber, slotNumber, 'productTypeIds', [...slot.productTypeIds, productTypeId])
+    }
+  }
+
+  const removeProductTypeFromSlot = (rowNumber: number, slotNumber: number, productTypeId: string) => {
+    const slot = slots.find(s => s.rowNumber === rowNumber && s.slotNumber === slotNumber)
+    if (slot) {
+      updateSlot(rowNumber, slotNumber, 'productTypeIds', slot.productTypeIds.filter(id => id !== productTypeId))
+    }
   }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -158,15 +177,19 @@ export default function MachineTemplateBuilderPage() {
       showToast('Please select a machine category', 'error')
       return false
     }
-    if (!formData.dimensions.trim()) {
-      showToast('Dimensions are required (format: LxWxH)', 'error')
+    if (!formData.modelNumber.trim()) {
+      showToast('Model number is required', 'error')
+      return false
+    }
+    if (!formData.lengthInches || !formData.widthInches || !formData.heightInches) {
+      showToast('All dimensions are required', 'error')
       return false
     }
     
-    // Check if all slots have both product type and MDB code
-    const invalidSlots = slots.filter(slot => !slot.productTypeId || !slot.mdbCode.trim())
+    // Check if all slots have at least one product type and MDB code
+    const invalidSlots = slots.filter(slot => slot.productTypeIds.length === 0 || !slot.mdbCode.trim())
     if (invalidSlots.length > 0) {
-      showToast('All slots must have both product type and MDB code', 'error')
+      showToast('All slots must have at least one product type and MDB code', 'error')
       return false
     }
     
@@ -204,29 +227,50 @@ export default function MachineTemplateBuilderPage() {
         .insert({
           name: formData.name.trim(),
           category_id: formData.categoryId,
-          image_url: imageUrl,
-          dimensions: formData.dimensions.trim()
+          model_number: formData.modelNumber.trim(),
+          length_inches: parseInt(formData.lengthInches),
+          width_inches: parseInt(formData.widthInches),
+          height_inches: parseInt(formData.heightInches),
+          is_outdoor_rated: formData.isOutdoorRated,
+          technical_description: formData.technicalDescription.trim() || null,
+          image_url: imageUrl
         })
         .select()
         .single()
       
       if (templateError) throw templateError
       
-      // Create slots
+      // Create slots and slot product types
       if (slots.length > 0) {
-        const slotData = slots.map(slot => ({
-          machine_template_id: template.id,
-          row_number: slot.rowNumber,
-          slot_number: slot.slotNumber,
-          product_type_id: slot.productTypeId,
-          mdb_code: slot.mdbCode.trim()
-        }))
-        
-        const { error: slotsError } = await supabase
-          .from('machine_template_slots')
-          .insert(slotData)
-        
-        if (slotsError) throw slotsError
+        for (const slot of slots) {
+          // Create the slot
+          const { data: slotData, error: slotError } = await supabase
+            .from('machine_template_slots')
+            .insert({
+              machine_template_id: template.id,
+              row_number: slot.rowNumber,
+              slot_number: slot.slotNumber,
+              mdb_code: slot.mdbCode.trim()
+            })
+            .select()
+            .single()
+          
+          if (slotError) throw slotError
+          
+          // Create slot product types
+          if (slot.productTypeIds.length > 0) {
+            const slotProductTypes = slot.productTypeIds.map(productTypeId => ({
+              machine_template_slot_id: slotData.id,
+              product_type_id: productTypeId
+            }))
+            
+            const { error: productTypesError } = await supabase
+              .from('machine_template_slot_product_types')
+              .insert(slotProductTypes)
+            
+            if (productTypesError) throw productTypesError
+          }
+        }
       }
       
       showToast('Machine template created successfully!', 'success')
@@ -257,6 +301,7 @@ export default function MachineTemplateBuilderPage() {
       <form onSubmit={handleSubmit} className="grid lg:grid-cols-2 gap-8">
         {/* Left Side - Form */}
         <div className="space-y-6">
+          {/* Basic Information Section */}
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h2>
             
@@ -308,18 +353,91 @@ export default function MachineTemplateBuilderPage() {
                   ))}
                 </select>
               </div>
+            </div>
+          </div>
 
+          {/* Technical Information Section */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Technical Information</h2>
+            
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Dimensions (LxWxH in inches) *
+                  Model # *
                 </label>
                 <input
                   type="text"
-                  value={formData.dimensions}
-                  onChange={(e) => setFormData({ ...formData, dimensions: e.target.value })}
+                  value={formData.modelNumber}
+                  onChange={(e) => setFormData({ ...formData, modelNumber: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., 72x36x84"
+                  placeholder="Enter model number"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Dimensions *
+                </label>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Length (inches)</label>
+                    <input
+                      type="number"
+                      value={formData.lengthInches}
+                      onChange={(e) => setFormData({ ...formData, lengthInches: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="72"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Width (inches)</label>
+                    <input
+                      type="number"
+                      value={formData.widthInches}
+                      onChange={(e) => setFormData({ ...formData, widthInches: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="36"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Height (inches)</label>
+                    <input
+                      type="number"
+                      value={formData.heightInches}
+                      onChange={(e) => setFormData({ ...formData, heightInches: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="84"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={formData.isOutdoorRated}
+                    onChange={(e) => setFormData({ ...formData, isOutdoorRated: e.target.checked })}
+                    className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Indoor or Outdoor Rated</span>
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description (Optional)
+                </label>
+                <textarea
+                  value={formData.technicalDescription}
+                  onChange={(e) => setFormData({ ...formData, technicalDescription: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Any other relevant information locations would need to know i.e. unique power / water requirements"
+                  rows={3}
                 />
               </div>
 
@@ -327,17 +445,49 @@ export default function MachineTemplateBuilderPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Machine Image
                 </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-sm text-gray-500 mt-1">Max file size: 5MB. Supported formats: JPG, PNG, GIF</p>
+                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-gray-400 transition-colors">
+                  <div className="space-y-1 text-center">
+                    <svg
+                      className="mx-auto h-12 w-12 text-gray-400"
+                      stroke="currentColor"
+                      fill="none"
+                      viewBox="0 0 48 48"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    <div className="flex text-sm text-gray-600">
+                      <label
+                        htmlFor="image-upload"
+                        className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
+                      >
+                        <span>Choose File</span>
+                        <input
+                          id="image-upload"
+                          name="image-upload"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="sr-only"
+                        />
+                      </label>
+                      <p className="pl-1">or drag and drop</p>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Image photo needs to be Square Aspect Ratio. Recommended size: 400x400 pixels for optimal display on machine cards.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
+          {/* Slot Configuration Section */}
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-gray-900">Slot Configuration</h2>
@@ -399,7 +549,7 @@ export default function MachineTemplateBuilderPage() {
                       const slot = slots.find(s => s.rowNumber === rowNumber && s.slotNumber === slotNumber) || {
                         rowNumber,
                         slotNumber,
-                        productTypeId: '',
+                        productTypeIds: [],
                         mdbCode: ''
                       }
 
@@ -407,20 +557,47 @@ export default function MachineTemplateBuilderPage() {
                         <div key={slotIndex} className="space-y-2">
                           <h4 className="text-sm font-medium text-gray-700">Slot {slotNumber}</h4>
                           
-                          <select
-                            value={slot.productTypeId}
-                            onChange={(e) => updateSlot(rowNumber, slotNumber, 'productTypeId', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                            required
-                          >
-                            <option value="">Select product type</option>
-                            {productTypes.map((type) => (
-                              <option key={type.id} value={type.id}>
-                                {type.name}
-                              </option>
+                          {/* Product Types */}
+                          <div className="space-y-2">
+                            <label className="block text-xs text-gray-600">Product Types</label>
+                            {slot.productTypeIds.map((productTypeId, index) => (
+                              <div key={index} className="flex items-center space-x-2">
+                                <select
+                                  value={productTypeId}
+                                  onChange={(e) => {
+                                    const newProductTypeIds = [...slot.productTypeIds]
+                                    newProductTypeIds[index] = e.target.value
+                                    updateSlot(rowNumber, slotNumber, 'productTypeIds', newProductTypeIds)
+                                  }}
+                                  className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                                  required
+                                >
+                                  <option value="">Select product type</option>
+                                  {productTypes.map((type) => (
+                                    <option key={type.id} value={type.id}>
+                                      {type.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => removeProductTypeFromSlot(rowNumber, slotNumber, productTypeId)}
+                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                                >
+                                  ×
+                                </button>
+                              </div>
                             ))}
-                          </select>
+                            <button
+                              type="button"
+                              onClick={() => addProductTypeToSlot(rowNumber, slotNumber, productTypes[0]?.id || '')}
+                              className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+                            >
+                              + Add Product Type
+                            </button>
+                          </div>
 
+                          {/* MDB Code */}
                           <input
                             type="text"
                             value={slot.mdbCode}
@@ -464,7 +641,9 @@ export default function MachineTemplateBuilderPage() {
             <div className="text-sm text-gray-600">
               <p><strong>Name:</strong> {formData.name || 'Not set'}</p>
               <p><strong>Category:</strong> {machineCategories.find(c => c.id === formData.categoryId)?.name || 'Not selected'}</p>
-              <p><strong>Dimensions:</strong> {formData.dimensions || 'Not set'}</p>
+              <p><strong>Model:</strong> {formData.modelNumber || 'Not set'}</p>
+              <p><strong>Dimensions:</strong> {formData.lengthInches && formData.widthInches && formData.heightInches ? `${formData.lengthInches}" × ${formData.widthInches}" × ${formData.heightInches}"` : 'Not set'}</p>
+              <p><strong>Outdoor Rated:</strong> {formData.isOutdoorRated ? 'Yes' : 'No'}</p>
             </div>
 
             {formData.imageFile && (
@@ -489,7 +668,7 @@ export default function MachineTemplateBuilderPage() {
                         const slotNumber = slotIndex + 1
                         const rowNumber = rowIndex + 1
                         const slot = slots.find(s => s.rowNumber === rowNumber && s.slotNumber === slotNumber)
-                        const isComplete = slot && slot.productTypeId && slot.mdbCode.trim()
+                        const isComplete = slot && slot.productTypeIds.length > 0 && slot.mdbCode.trim()
                         
                         return (
                           <div
@@ -513,7 +692,7 @@ export default function MachineTemplateBuilderPage() {
             <div className="text-sm text-gray-600">
               <p><strong>Total Rows:</strong> {rows.length}</p>
               <p><strong>Total Slots:</strong> {rows.reduce((sum, row) => sum + row.length, 0)}</p>
-              <p><strong>Complete Slots:</strong> {slots.filter(s => s.productTypeId && s.mdbCode.trim()).length}</p>
+              <p><strong>Complete Slots:</strong> {slots.filter(s => s.productTypeIds.length > 0 && s.mdbCode.trim()).length}</p>
             </div>
           </div>
         </div>

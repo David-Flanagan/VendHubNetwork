@@ -6,9 +6,9 @@ import { supabase } from '@/lib/supabase'
 interface ImageUploadProps {
   currentImageUrl?: string
   onImageUploaded: (imageUrl: string) => void
-  onUploadError: (error: string) => void
+  onUploadError?: (error: string) => void
   bucketName: string
-  folderPath: string
+  folderPath?: string
   maxSizeMB?: number
   acceptedTypes?: string[]
   aspectRatio?: number
@@ -34,13 +34,13 @@ export default function ImageUpload({
   const handleFileSelect = (file: File) => {
     // Validate file type
     if (!acceptedTypes.includes(file.type)) {
-      onUploadError(`Please select a valid image file (${acceptedTypes.join(', ')})`)
+      onUploadError?.(`Please select a valid image file (${acceptedTypes.join(', ')})`)
       return
     }
 
     // Validate file size
     if (file.size > maxSizeMB * 1024 * 1024) {
-      onUploadError(`File size must be less than ${maxSizeMB}MB`)
+      onUploadError?.(`File size must be less than ${maxSizeMB}MB`)
       return
     }
 
@@ -84,7 +84,7 @@ export default function ImageUpload({
       setPreviewUrl(null)
     } catch (error: any) {
       console.error('Upload error:', error)
-      onUploadError(error.message || 'Failed to upload image')
+      onUploadError?.(error.message || 'Failed to upload image')
       setPreviewUrl(null)
     } finally {
       setUploading(false)

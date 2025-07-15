@@ -38,6 +38,15 @@ VendHub Network connects host locations with vending machine operators, enabling
 - **Dynamic Pricing**: Company-specific pricing
 - **Smart Filtering**: Only show categories and types with available products
 
+### 🤖 Machine Template System (3-Table Architecture)
+- **Global Machine Templates**: Admin-managed global catalog of machine types
+- **Company Machine Templates**: Operator-customized copies of global templates
+- **Customer Machines**: Customer onboarded machines with complete product snapshots
+- **Slot Configuration**: JSON-based slot structure with rows and slots
+- **Category Filtering**: Machine categories with filtering
+- **Builder Interface**: Visual machine template builder with live preview
+- **Public Display**: Available machines shown on public company profiles
+
 ### 🔍 Customer Discovery
 - **Browse Operators Page**: Location-based search with interactive map
 - **Distance Calculation**: Show nearby operators in miles
@@ -91,6 +100,8 @@ VendHub Network connects host locations with vending machine operators, enabling
    - `remove-radius-service-areas.sql` - Clean up radius data
    - `setup-company-logos-bucket.sql` - Company logo storage setup (requires manual policy setup)
    - `add-product-categories.sql` - Product category system
+   - `machine-templates-setup.sql` - Machine template system setup
+   - `fix-company-machine-templates-public-access.sql` - RLS policies for public access
 
 5. **Start Development Server**
    ```bash
@@ -120,8 +131,12 @@ src/
 │   ├── operators/         # Operator-specific pages
 │   │   ├── dashboard/     # Operator dashboard
 │   │   ├── edit-profile/  # Profile customization
+│   │   ├── machine-templates/ # Machine template management
+│   │   ├── global-machine-templates/ # Global template browsing
 │   │   └── settings/      # Company settings
 │   ├── admin/            # Admin panel
+│   │   ├── machine-templates/ # Global template management
+│   │   └── machine-categories/ # Category management
 │   ├── customers/        # Customer pages
 │   ├── browse-operators/ # Operator discovery
 │   └── [company-name]/   # Public company profiles
@@ -145,10 +160,55 @@ src/
 - `company_products` - Company-specific product catalogs
 - `product_categories` - Product category system
 - `product_types` - Product type system
-- `machine_templates` - Predefined machine types
 - `machine_categories` - Machine category system
 - `service_areas` - Company service coverage areas (polygon-only)
 - `machine_gallery` - Company machine photos
+
+### Machine Template System (3-Table Architecture)
+```sql
+-- Global machine templates (admin-managed)
+global_machine_templates (
+  id, name, description, image_url, dimensions,
+  slot_count, category_id, slot_configuration,
+  is_active, created_at, updated_at
+)
+
+-- Company machine templates (operator-customized copies)
+company_machine_templates (
+  id, company_id, name, description, image_url,
+  dimensions, slot_count, category_id, slot_configuration,
+  is_active, created_at, updated_at
+)
+
+-- Customer machines (onboarded with product snapshots)
+customer_machines (
+  id, customer_id, company_id, machine_template_id,
+  name, location, slot_configuration, product_snapshots,
+  created_at, updated_at
+)
+```
+
+### Slot Configuration Structure
+The `slot_configuration` is a JSONB field with the following structure:
+```json
+{
+  "rows": [
+    {
+      "id": "row-1",
+      "name": "Row A",
+      "slots": [
+        {
+          "id": "slot-1",
+          "alias": "A1",
+          "mdb_code": "A1",
+          "allowed_product_types": ["snack", "candy"],
+          "current_product": null
+        }
+      ]
+    }
+  ]
+}
+```
 
 ### Updated Company Table Structure
 ```sql
@@ -195,6 +255,14 @@ Companies use a `sections_config` JSONB column to store widget configuration:
 ```
 
 ## 🔧 Development
+
+### Machine Template System
+- **Global Templates**: Admins create and manage global machine types
+- **Company Templates**: Operators copy and customize global templates
+- **Slot Configuration**: JSON-based structure with rows and slots
+- **Builder Interface**: Visual builder with live preview grid
+- **Category System**: Machine categories for organization
+- **Public Display**: Available machines shown on public profiles
 
 ### Adding New Profile Sections
 1. Add section to `defaultConfig` in edit-profile page
@@ -248,74 +316,3 @@ Use `migrate-new-sections.sql` to automatically add missing sections to all exis
 - Toggle switches for optional sections
 - Collapsible interface
 - Auto-saving configuration
-
-### Customer Discovery
-- Location-based operator search
-- Interactive maps with service areas
-- Distance-based sorting
-- Rich company cards with credentials
-- Seamless navigation between search and profiles
-- Current location detection
-
-### Product & Machine Filtering
-- Hierarchical filtering design
-- Smart button display (only relevant options)
-- Visual feedback for active states
-- Search integration across all filters
-- Performance optimized with memoization
-
-### Image Management
-- Profile images (1200×400px, 3:1 ratio)
-- Company logos
-- Machine gallery carousel
-- Drag-and-drop uploads
-- Organized storage buckets
-
-## 🔒 Security
-
-- **Row Level Security**: Database-level protection
-- **Role-based Access**: User permission system
-- **File Upload Security**: Validated image uploads
-- **API Protection**: Authenticated endpoints
-
-## 🚀 Deployment
-
-### Vercel (Recommended)
-1. Connect your GitHub repository
-2. Set environment variables
-3. Deploy automatically on push
-
-### Other Platforms
-- Netlify
-- Railway
-- DigitalOcean App Platform
-
-## 🐛 Recent Bug Fixes
-
-### Performance Issues
-- **Infinite Re-render Fix**: Resolved "Maximum update depth exceeded" error with `useMemo`
-- **TypeScript Errors**: Fixed interface conflicts and type mismatches
-- **Component Optimization**: Reduced unnecessary re-renders
-
-### Git Repository
-- **Repository Setup**: Properly configured Git repository structure
-- **Remote Configuration**: Connected to GitHub repository
-- **Code Backup**: All work safely stored on GitHub
-
-## 🤝 Contributing
-
-1. Follow the development rules in `DEVELOPMENT_RULES.md`
-2. Test all features thoroughly
-3. Use TypeScript for all new code
-4. Follow the existing code patterns
-5. Update documentation for new features
-
-## 📄 License
-
-This project is proprietary software.
-
----
-
-**Version**: 2.1.0  
-**Last Updated**: January 2025  
-**Repository**: https://github.com/David-Flanagan/VendHubNetwork

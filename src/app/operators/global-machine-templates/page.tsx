@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import RouteGuard from '@/components/auth/RouteGuard'
+import { formatDate } from '@/lib/date-utils'
 
 interface MachineTemplate {
   id: string
@@ -16,6 +17,9 @@ interface MachineTemplate {
   image_url: string | null
   dimensions: string | null
   slot_count: number
+  model_number: string | null
+  is_outdoor_rated: boolean | null
+  technical_description: string | null
   created_at: string
   is_in_company_catalog: boolean
   created_by_company: {
@@ -54,7 +58,8 @@ export default function GlobalMachineTemplatesPage() {
       filtered = filtered.filter(template => 
         template.name.toLowerCase().includes(search) ||
         template.category.name.toLowerCase().includes(search) ||
-        (template.dimensions && template.dimensions.toLowerCase().includes(search))
+        (template.dimensions && template.dimensions.toLowerCase().includes(search)) ||
+        (template.model_number && template.model_number.toLowerCase().includes(search))
       )
     }
 
@@ -74,7 +79,7 @@ export default function GlobalMachineTemplatesPage() {
 
       // Get all machine templates
       const { data: templates, error: templatesError } = await supabase
-        .from('machine_templates')
+        .from('global_machine_templates')
         .select(`
           id,
           name,
@@ -82,7 +87,11 @@ export default function GlobalMachineTemplatesPage() {
           dimensions,
           created_at,
           category_id,
-          slot_count
+          slot_count,
+          model_number,
+          is_outdoor_rated,
+          technical_description,
+          created_by
         `)
         .order('name')
 
@@ -102,15 +111,35 @@ export default function GlobalMachineTemplatesPage() {
       // Create a lookup map for categories
       const categoryMap = new Map(categories?.map(cat => [cat.id, cat.name]) || [])
 
+      // Get company names for lookup by getting users and their companies
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select(`
+          id,
+          companies (
+            id,
+            name
+          )
+        `)
+        .not('companies', 'is', null)
+
+      if (usersError) throw usersError
+      const userCompanyMap = new Map()
+      users?.forEach((user: any) => {
+        if (user.companies) {
+          userCompanyMap.set(user.id, user.companies.name)
+        }
+      })
+
       // Get company's machine templates to check which ones are already added
       const { data: companyTemplates, error: companyError } = await supabase
         .from('company_machine_templates')
-        .select('machine_template_id')
+        .select('global_machine_template_id')
         .eq('company_id', user.company_id)
 
       if (companyError) throw companyError
 
-      const companyTemplateIds = new Set(companyTemplates?.map(ct => ct.machine_template_id) || [])
+      const companyTemplateIds = new Set(companyTemplates?.map(ct => ct.global_machine_template_id) || [])
 
       // Transform the data to match our interface
       const transformedData = (templates || []).map((item: any) => ({
@@ -124,9 +153,14 @@ export default function GlobalMachineTemplatesPage() {
           name: categoryMap.get(item.category_id) || 'Unknown'
         },
         slot_count: item.slot_count || 0,
+        model_number: item.model_number,
+        is_outdoor_rated: item.is_outdoor_rated,
+        technical_description: item.technical_description,
         is_in_company_catalog: companyTemplateIds.has(item.id),
-        created_by_company: null,
-        can_delete: false
+        created_by_company: item.created_by ? {
+          name: userCompanyMap.get(item.created_by) || 'Unknown'
+        } : null,
+        can_delete: item.created_by === user.id
       }))
 
       setMachineTemplates(transformedData)
@@ -134,9 +168,7 @@ export default function GlobalMachineTemplatesPage() {
     } catch (error: any) {
       console.error('Error loading machine templates:', error)
       if (error.code === '42P01') {
-        setError('Machine templates table not found. Please run the database setup first.')
-      } else if (error.message && error.message.includes('image_url')) {
-        setError('Database schema mismatch. Please run the fix script: fix-machine-templates.sql')
+        setError('Global machine templates table not found. Please run the database setup first.')
       } else {
         setError(`Failed to load machine templates: ${error.message || 'Unknown error'}`)
       }
@@ -147,11 +179,30 @@ export default function GlobalMachineTemplatesPage() {
 
   const addToCompanyCatalog = async (templateId: string, templateName: string) => {
     try {
+      // First, get the complete global template data
+      const { data: globalTemplate, error: fetchError } = await supabase
+        .from('global_machine_templates')
+        .select('*')
+        .eq('id', templateId)
+        .single()
+
+      if (fetchError) throw fetchError
+      if (!globalTemplate) throw new Error('Global template not found')
+
+      // Create company machine template with complete copy of global template data
       const { error } = await supabase
         .from('company_machine_templates')
         .insert({
           company_id: user?.company_id,
-          machine_template_id: templateId
+          global_machine_template_id: templateId,
+          name: globalTemplate.name,
+          category_id: globalTemplate.category_id,
+          description: globalTemplate.description,
+          image_url: globalTemplate.image_url,
+          dimensions: globalTemplate.dimensions,
+          slot_count: globalTemplate.slot_count,
+          slot_configuration: globalTemplate.slot_configuration,
+          is_active: true
         })
 
       if (error) throw error
@@ -169,25 +220,17 @@ export default function GlobalMachineTemplatesPage() {
     }
 
     try {
-      // Delete slots first
-      const { error: slotsError } = await supabase
-        .from('machine_template_slots')
-        .delete()
-        .eq('machine_template_id', templateId)
-
-      if (slotsError) throw slotsError
-
-      // Delete from company catalogs
+      // Delete from company catalogs first
       const { error: companyError } = await supabase
         .from('company_machine_templates')
         .delete()
-        .eq('machine_template_id', templateId)
+        .eq('global_machine_template_id', templateId)
 
       if (companyError) throw companyError
 
       // Delete the template
       const { error: templateError } = await supabase
-        .from('machine_templates')
+        .from('global_machine_templates')
         .delete()
         .eq('id', templateId)
 
@@ -241,7 +284,7 @@ export default function GlobalMachineTemplatesPage() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by name, category, or dimensions..."
+                placeholder="Search by name, category, model number, or dimensions..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -314,13 +357,25 @@ export default function GlobalMachineTemplatesPage() {
                         </p>
                       </div>
 
+                      {template.model_number && (
+                        <p className="text-gray-500 text-xs mb-1">
+                          Model: {template.model_number}
+                        </p>
+                      )}
+
                       {template.dimensions && (
-                        <p className="text-gray-500 text-xs mb-3">
+                        <p className="text-gray-500 text-xs mb-1">
                           {template.dimensions}
                         </p>
                       )}
 
-                      <div className="flex items-center justify-between">
+                      {template.is_outdoor_rated && (
+                        <p className="text-green-600 text-xs mb-1">
+                          Outdoor Rated
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-between mb-2">
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                           {template.slot_count} slots
                         </span>
@@ -349,6 +404,10 @@ export default function GlobalMachineTemplatesPage() {
                           )}
                         </div>
                       </div>
+
+                      <p className="text-gray-400 text-xs">
+                        Created: {formatDate(template.created_at)}
+                      </p>
                     </div>
                   </div>
                 ))}

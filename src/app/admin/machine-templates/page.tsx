@@ -16,6 +16,8 @@ interface MachineTemplate {
   image_url: string | null
   dimensions: string | null
   slot_count: number
+  model_number: string | null
+  is_outdoor_rated: boolean
   created_at: string
 }
 
@@ -69,7 +71,7 @@ export default function MachineTemplatesPage() {
   const loadMachineTemplates = async () => {
     try {
       const { data, error } = await supabase
-        .from('machine_templates')
+        .from('global_machine_templates')
         .select(`
           id,
           name,
@@ -77,7 +79,9 @@ export default function MachineTemplatesPage() {
           dimensions,
           created_at,
           category_id,
-          slot_count
+          slot_count,
+          model_number,
+          is_outdoor_rated
         `)
         .order('name')
 
@@ -105,7 +109,9 @@ export default function MachineTemplatesPage() {
           id: item.category_id,
           name: categoryMap.get(item.category_id) || 'Unknown'
         },
-        slot_count: item.slot_count || 0
+        slot_count: item.slot_count || 0,
+        model_number: item.model_number,
+        is_outdoor_rated: item.is_outdoor_rated || false
       }))
       
       setMachineTemplates(transformedData)
@@ -115,7 +121,7 @@ export default function MachineTemplatesPage() {
       if (error.code === '42P01') {
         setError('Machine templates table not found. Please run the database setup first.')
       } else if (error.message && error.message.includes('image_url')) {
-        setError('Database schema mismatch. Please run the fix script: fix-machine-templates.sql')
+        setError('Database schema mismatch. Please run the fix script: add-technical-info-fields-fixed.sql')
       } else {
         setError(`Failed to load machine templates: ${error.message || 'Unknown error'}`)
       }
@@ -134,7 +140,7 @@ export default function MachineTemplatesPage() {
       const { data: companyTemplates, error: checkError } = await supabase
         .from('company_machine_templates')
         .select('id')
-        .eq('machine_template_id', id)
+        .eq('global_machine_template_id', id)
 
       if (checkError) throw checkError
 
@@ -144,7 +150,7 @@ export default function MachineTemplatesPage() {
       }
 
       const { error } = await supabase
-        .from('machine_templates')
+        .from('global_machine_templates')
         .delete()
         .eq('id', id)
 
@@ -255,7 +261,11 @@ export default function MachineTemplatesPage() {
                       {template.slot_count || 0}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(template.created_at).toLocaleDateString()}
+                      {new Date(template.created_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                      })}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button

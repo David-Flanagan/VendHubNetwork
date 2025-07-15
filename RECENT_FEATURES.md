@@ -2,6 +2,17 @@
 
 ## January 2025 Updates
 
+### 🤖 Machine Template System Overhaul (3-Table Architecture)
+- **Simplified Architecture**: Migrated from 9-table over-engineered system to clean 3-table structure
+- **Global Machine Templates**: Admin-managed global catalog of machine types
+- **Company Machine Templates**: Operator-customized copies of global templates with complete data storage
+- **Customer Machines**: Customer onboarded machines with complete product snapshots and pricing
+- **Slot Configuration**: JSON-based structure with rows and slots, each slot having alias, MDB code, and allowed product types
+- **Builder Interface**: Visual machine template builder with live preview grid and row-by-row addition
+- **Category System**: Machine categories for organization and filtering
+- **Public Display**: Available machines shown on public company profiles with category filtering
+- **RLS Policies**: Fixed public access for customer viewing while maintaining operator security
+
 ### 🛒 Enhanced Product & Machine Filtering System
 - **Product Category Filtering**: Added hierarchical filtering with product categories first, then product types
 - **Smart Category Display**: Only show product categories that have products available
@@ -47,8 +58,83 @@
 - **TypeScript Errors**: Fixed interface conflicts and type mismatches
 - **Git Repository Setup**: Properly configured Git repository and pushed to GitHub
 - **Code Organization**: Cleaned up component structure and dependencies
+- **RLS Policy Fixes**: Fixed public access to company machine templates for customer viewing
 
 ## Database Schema Updates
+
+### Machine Template System (3-Table Architecture)
+```sql
+-- Global machine templates (admin-managed)
+CREATE TABLE global_machine_templates (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  image_url TEXT,
+  dimensions TEXT,
+  slot_count INTEGER NOT NULL DEFAULT 0,
+  category_id UUID REFERENCES machine_categories(id),
+  slot_configuration JSONB,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Company machine templates (operator-customized copies)
+CREATE TABLE company_machine_templates (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  image_url TEXT,
+  dimensions TEXT,
+  slot_count INTEGER NOT NULL DEFAULT 0,
+  category_id UUID REFERENCES machine_categories(id),
+  slot_configuration JSONB,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Customer machines (onboarded with product snapshots)
+CREATE TABLE customer_machines (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
+  company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
+  machine_template_id UUID REFERENCES company_machine_templates(id),
+  name TEXT NOT NULL,
+  location TEXT,
+  slot_configuration JSONB,
+  product_snapshots JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### Slot Configuration Structure
+```json
+{
+  "rows": [
+    {
+      "id": "row-1",
+      "name": "Row A",
+      "slots": [
+        {
+          "id": "slot-1",
+          "alias": "A1",
+          "mdb_code": "A1",
+          "allowed_product_types": ["snack", "candy"],
+          "current_product": {
+            "product_id": "uuid",
+            "name": "Product Name",
+            "price": 1.50,
+            "commission": 0.15
+          }
+        }
+      ]
+    }
+  ]
+}
+```
 
 ### Companies Table
 ```sql
@@ -75,6 +161,26 @@ ALTER TABLE service_areas ADD CONSTRAINT service_areas_method_check CHECK (metho
 - **Smart Display**: Only show categories and types that have products
 
 ## New Components
+
+### Machine Template Builder
+- **Location**: `src/app/operators/machine-templates/builder/page.tsx`
+- **Purpose**: Visual machine template builder with live preview
+- **Features**: Row-by-row addition, slot configuration, category assignment, live preview grid
+
+### Machine Templates Management
+- **Location**: `src/app/operators/machine-templates/page.tsx`
+- **Purpose**: Manage company machine templates
+- **Features**: Add from global catalog, edit templates, category filtering
+
+### Global Machine Templates
+- **Location**: `src/app/operators/global-machine-templates/page.tsx`
+- **Purpose**: Browse and add global machine templates to company catalog
+- **Features**: Search, filtering, add to company catalog
+
+### Admin Machine Templates
+- **Location**: `src/app/admin/machine-templates/page.tsx`
+- **Purpose**: Admin management of global machine templates
+- **Features**: Create, edit, delete global templates, category management
 
 ### CustomerMap
 - **Location**: `src/components/maps/CustomerMap.tsx`
@@ -106,6 +212,7 @@ ALTER TABLE service_areas ADD CONSTRAINT service_areas_method_check CHECK (metho
   - Search functionality for both products and machines
   - Performance optimizations with `useMemo`
   - Better error handling and loading states
+  - Available machines section with category filtering
 
 ### UnifiedLocationManager
 - **Changes**: Removed radius support, polygon-only service areas
@@ -123,6 +230,16 @@ ALTER TABLE service_areas ADD CONSTRAINT service_areas_method_check CHECK (metho
 
 ## Migration Scripts
 
+### Machine Template System Migration
+- **File**: `machine-templates-setup.sql`
+- **Purpose**: Set up the new 3-table machine template system
+- **Impact**: Clean migration from old 9-table system to new simplified structure
+
+### Fix Company Machine Templates Public Access
+- **File**: `fix-company-machine-templates-public-access.sql`
+- **Purpose**: Fix RLS policies to allow public read access to active company machine templates
+- **Impact**: Customers can now view available machines on public company profiles
+
 ### Remove Radius Service Areas
 - **File**: `remove-radius-service-areas.sql`
 - **Purpose**: Clean up radius-based service areas and update schema
@@ -139,6 +256,48 @@ ALTER TABLE service_areas ADD CONSTRAINT service_areas_method_check CHECK (metho
 - **Impact**: Secure logo upload and display functionality
 
 ## TypeScript Updates
+
+### Machine Template Types
+```typescript
+interface MachineTemplate {
+  id: string
+  name: string
+  description?: string
+  image_url?: string
+  dimensions?: string
+  slot_count: number
+  category_id?: string
+  slot_configuration?: SlotConfiguration
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+interface SlotConfiguration {
+  rows: SlotRow[]
+}
+
+interface SlotRow {
+  id: string
+  name: string
+  slots: Slot[]
+}
+
+interface Slot {
+  id: string
+  alias: string
+  mdb_code: string
+  allowed_product_types: string[]
+  current_product?: ProductSnapshot
+}
+
+interface ProductSnapshot {
+  product_id: string
+  name: string
+  price: number
+  commission: number
+}
+```
 
 ### Service Area Types
 ```typescript
@@ -185,6 +344,12 @@ const availableProductCategories = useMemo(() =>
 
 ## API Changes
 
+### Machine Template Endpoints
+- **Global Templates**: Admin CRUD operations for global machine templates
+- **Company Templates**: Operator management of company-specific templates
+- **Customer Machines**: Customer onboarding with product snapshots
+- **Slot Configuration**: JSON-based slot structure management
+
 ### Service Area Endpoints
 - **Create/Update**: Only accepts polygon geometry
 - **Validation**: Enforces polygon-only method
@@ -200,6 +365,12 @@ const availableProductCategories = useMemo(() =>
 - **Performance**: Optimized queries with proper indexing
 
 ## UI/UX Improvements
+
+### Machine Template Builder
+- **Visual Interface**: Drag-and-drop row addition
+- **Live Preview**: Real-time grid preview of slot configuration
+- **Category Assignment**: Easy machine category selection
+- **Slot Configuration**: Detailed slot setup with product type restrictions
 
 ### Map Interactions
 - **Marker Clicks**: Show info windows instead of direct navigation
@@ -227,10 +398,11 @@ const availableProductCategories = useMemo(() =>
 ## Performance Improvements
 
 ### Database Queries
-- **Simplified Schema**: Removed unused radius columns
+- **Simplified Schema**: Removed unused radius columns and old machine template tables
 - **Index Optimization**: Better geospatial query performance
 - **Reduced Complexity**: Polygon-only queries are more efficient
 - **Product Filtering**: Optimized category and type filtering
+- **Machine Templates**: Efficient 3-table structure with proper indexing
 
 ### React Performance
 - **useMemo Optimization**: Prevented infinite re-render loops
@@ -245,71 +417,7 @@ const availableProductCategories = useMemo(() =>
 ## Security Updates
 
 ### RLS Policies
+- **Machine Templates**: Public read access for active company templates
 - **Service Areas**: Updated for polygon-only access patterns
 - **Company Data**: Enhanced policies for new credential fields
-- **Public Access**: Maintained for location search functionality
-
-## Git Repository Management
-
-### Repository Setup
-- **Proper Structure**: Configured Git repository in correct directory
-- **Remote Configuration**: Connected to GitHub repository
-- **Force Push**: Safely updated remote with local changes using `--force-with-lease`
-- **Backup**: All code now safely stored on GitHub
-
-### Repository URL
-- **GitHub**: https://github.com/David-Flanagan/VendHubNetwork
-- **Status**: All current work committed and pushed
-- **Branch**: main
-
-## Testing Considerations
-
-### Service Area Migration
-- **Data Integrity**: Verify all radius service areas removed
-- **Polygon Validation**: Ensure existing polygons still work
-- **UI Functionality**: Test polygon drawing and editing
-
-### Location Search
-- **Distance Accuracy**: Verify mile-based calculations
-- **Service Area Matching**: Test polygon-based location checking
-- **Navigation Flow**: Test search → profile → back to search
-- **Current Location**: Test browser geolocation functionality
-
-### Company Credentials
-- **Logo Display**: Test logo upload and display
-- **Date Formatting**: Verify incorporation date display
-- **Settings Page**: Test company settings functionality
-
-### Product & Machine Filtering
-- **Category Filtering**: Test category-based product filtering
-- **Type Filtering**: Test dynamic product type filtering
-- **Search Integration**: Test text search with filters
-- **Performance**: Test filtering performance with large datasets
-
-## Future Considerations
-
-### Potential Enhancements
-- **Service Area Templates**: Predefined polygon shapes
-- **Advanced Analytics**: Service area coverage analysis
-- **Overlap Detection**: Identify overlapping service areas
-- **Optimization Tools**: Suggest optimal service area shapes
-- **Advanced Product Filtering**: Price ranges, availability filters
-- **Machine Template Filtering**: Slot count, dimensions filtering
-
-### Performance Monitoring
-- **Query Performance**: Monitor geospatial query performance
-- **Map Loading**: Track map initialization success rates
-- **User Engagement**: Monitor location search usage
-- **Filter Usage**: Track which filters are most popular
-
-### Code Quality
-- **TypeScript Strict Mode**: Enable stricter type checking
-- **Component Testing**: Add unit tests for filtering components
-- **Performance Testing**: Load testing for filtering operations
-- **Accessibility**: Improve keyboard navigation and screen reader support
-
----
-
-**Last Updated**: January 2025
-**Version**: 2.1.0
-**Git Repository**: https://github.com/David-Flanagan/VendHubNetwork 
+- **Public Access**: Maintained for location search functionality 

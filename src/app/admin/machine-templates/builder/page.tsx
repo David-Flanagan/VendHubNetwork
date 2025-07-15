@@ -1,57 +1,93 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
+import ImageUpload from '@/components/ImageUpload'
 
 interface MachineCategory {
   id: string
   name: string
-  description: string | null
 }
 
 interface ProductType {
   id: string
   name: string
-  description: string | null
 }
 
 interface Slot {
-  rowNumber: number
-  slotNumber: number
-  productTypeIds: string[]
-  mdbCode: string
+  slot_id: string
+  alias: string
+  mdb_code: string
+  allowed_product_types: string[]
 }
 
-export default function MachineTemplateBuilderPage() {
-  const { loading: authLoading, isAdmin } = useAuth()
+interface Row {
+  row_number: number
+  slots: Slot[]
+}
+
+interface MachineTemplateData {
+  // Basic Info
+  name: string
+  description: string
+  category_id: string
+  image_url: string | null
+  
+  // Slot Configuration
+  slot_configuration: {
+    rows: Row[]
+  }
+  
+  // Technical Info (Optional)
+  model_number: string
+  serial_number: string
+  dimensions: {
+    length: string
+    width: string
+    height: string
+  }
+  power_consumption: string
+  technical_description: string
+  is_outdoor_rated: boolean
+}
+
+interface ExpandedRows {
+  [key: number]: boolean
+}
+
+export default function MachineTemplateBuilder() {
+  const { loading: authLoading, isAdmin, user } = useAuth()
   const { showToast } = useToast()
   const router = useRouter()
-
-  // Form state
-  const [formData, setFormData] = useState({
-    name: '',
-    categoryId: '',
-    modelNumber: '',
-    lengthInches: '',
-    widthInches: '',
-    heightInches: '',
-    isOutdoorRated: false,
-    technicalDescription: '',
-    imageFile: null as File | null
-  })
-
-  // Dynamic slots state
-  const [rows, setRows] = useState<number[][]>([[1]]) // Each row contains slot numbers
-  const [slots, setSlots] = useState<Slot[]>([])
-
-  // Data loading state
+  
+  const [currentStep, setCurrentStep] = useState(1)
+  const [loading, setLoading] = useState(false)
   const [machineCategories, setMachineCategories] = useState<MachineCategory[]>([])
   const [productTypes, setProductTypes] = useState<ProductType[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [expandedRows, setExpandedRows] = useState<ExpandedRows>({})
+  
+  const [templateData, setTemplateData] = useState<MachineTemplateData>({
+    name: '',
+    description: '',
+    category_id: '',
+    image_url: null,
+    slot_configuration: {
+      rows: []
+    },
+    model_number: '',
+    serial_number: '',
+    dimensions: {
+      length: '',
+      width: '',
+      height: ''
+    },
+    power_consumption: '',
+    technical_description: '',
+    is_outdoor_rated: false
+  })
 
   useEffect(() => {
     if (!authLoading && !isAdmin) {
@@ -59,249 +95,212 @@ export default function MachineTemplateBuilderPage() {
       return
     }
     if (isAdmin) {
-      loadData()
+      loadCategories()
+      loadProductTypes()
     }
   }, [authLoading, isAdmin, router])
 
-  const loadData = async () => {
+  const loadCategories = async () => {
     try {
-      const [categoriesResult, typesResult] = await Promise.all([
-        supabase.from('machine_categories').select('*').order('name'),
-        supabase.from('product_types').select('*').order('name')
-      ])
+      const { data, error } = await supabase
+        .from('machine_categories')
+        .select('id, name')
+        .order('name')
 
-      if (categoriesResult.error) throw categoriesResult.error
-      if (typesResult.error) throw typesResult.error
-
-      setMachineCategories(categoriesResult.data || [])
-      setProductTypes(typesResult.data || [])
+      if (error) throw error
+      setMachineCategories(data || [])
     } catch (error: any) {
-      showToast('Failed to load data: ' + error.message, 'error')
-    } finally {
-      setLoading(false)
+      showToast('Failed to load machine categories: ' + error.message, 'error')
     }
+  }
+
+  const loadProductTypes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('product_types')
+        .select('id, name')
+        .order('name')
+
+      if (error) throw error
+      setProductTypes(data || [])
+    } catch (error: any) {
+      showToast('Failed to load product types: ' + error.message, 'error')
+    }
+  }
+
+  const updateTemplateData = (field: string, value: any) => {
+    setTemplateData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  const updateDimensions = (field: string, value: string) => {
+    setTemplateData(prev => ({
+      ...prev,
+      dimensions: {
+        ...prev.dimensions,
+        [field]: value
+      }
+    }))
   }
 
   const addRow = () => {
-    const newRowNumber = rows.length + 1
-    setRows([...rows, [1]]) // Add new row with 1 slot
-  }
-
-  const removeRow = (rowIndex: number) => {
-    if (rows.length <= 1) return // Keep at least one row
-    
-    const newRows = rows.filter((_, index) => index !== rowIndex)
-    setRows(newRows)
-    
-    // Remove slots for this row
-    const newSlots = slots.filter(slot => slot.rowNumber !== rowIndex + 1)
-    setSlots(newSlots)
-  }
-
-  const updateSlotsInRow = (rowIndex: number, slotCount: number) => {
-    const newRows = [...rows]
-    newRows[rowIndex] = Array.from({ length: slotCount }, (_, i) => i + 1)
-    setRows(newRows)
-    
-    // Update slots for this row
-    const newSlots = slots.filter(slot => slot.rowNumber !== rowIndex + 1)
-    for (let i = 1; i <= slotCount; i++) {
-      const existingSlot = slots.find(s => s.rowNumber === rowIndex + 1 && s.slotNumber === i)
-      if (existingSlot) {
-        newSlots.push(existingSlot)
-      } else {
-        newSlots.push({
-          rowNumber: rowIndex + 1,
-          slotNumber: i,
-          productTypeIds: [],
-          mdbCode: ''
-        })
-      }
+    const newRowNumber = templateData.slot_configuration.rows.length + 1
+    const newRow: Row = {
+      row_number: newRowNumber,
+      slots: []
     }
-    setSlots(newSlots)
+    
+    setTemplateData(prev => ({
+      ...prev,
+      slot_configuration: {
+        rows: [...prev.slot_configuration.rows, newRow]
+      }
+    }))
+    
+    // Auto-expand the new row
+    setExpandedRows(prev => ({
+      ...prev,
+      [newRowNumber]: true
+    }))
   }
 
-  const updateSlot = (rowNumber: number, slotNumber: number, field: 'productTypeIds' | 'mdbCode', value: any) => {
-    const newSlots = [...slots]
-    const slotIndex = newSlots.findIndex(s => s.rowNumber === rowNumber && s.slotNumber === slotNumber)
+  const deleteRow = (rowIndex: number) => {
+    setTemplateData(prev => ({
+      ...prev,
+      slot_configuration: {
+        rows: prev.slot_configuration.rows.filter((_, index) => index !== rowIndex)
+      }
+    }))
+  }
+
+  const addSlotsToRow = (rowIndex: number, slotCount: number) => {
+    const row = templateData.slot_configuration.rows[rowIndex]
+    const newSlots: Slot[] = []
     
-    if (slotIndex >= 0) {
-      newSlots[slotIndex] = { ...newSlots[slotIndex], [field]: value }
-    } else {
+    for (let i = 1; i <= slotCount; i++) {
+      const slotId = `${String.fromCharCode(65 + rowIndex)}${i}`
       newSlots.push({
-        rowNumber,
-        slotNumber,
-        productTypeIds: field === 'productTypeIds' ? value : [],
-        mdbCode: field === 'mdbCode' ? value : ''
+        slot_id: slotId,
+        alias: `Row ${row.row_number} - Slot ${i}`,
+        mdb_code: slotId,
+        allowed_product_types: []
       })
     }
     
-    setSlots(newSlots)
-  }
-
-  const addProductTypeToSlot = (rowNumber: number, slotNumber: number, productTypeId: string) => {
-    const slot = slots.find(s => s.rowNumber === rowNumber && s.slotNumber === slotNumber)
-    if (slot && !slot.productTypeIds.includes(productTypeId)) {
-      updateSlot(rowNumber, slotNumber, 'productTypeIds', [...slot.productTypeIds, productTypeId])
-    }
-  }
-
-  const removeProductTypeFromSlot = (rowNumber: number, slotNumber: number, productTypeId: string) => {
-    const slot = slots.find(s => s.rowNumber === rowNumber && s.slotNumber === slotNumber)
-    if (slot) {
-      updateSlot(rowNumber, slotNumber, 'productTypeIds', slot.productTypeIds.filter(id => id !== productTypeId))
-    }
-  }
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        showToast('Image file size must be less than 5MB', 'error')
-        return
+    setTemplateData(prev => ({
+      ...prev,
+      slot_configuration: {
+        rows: prev.slot_configuration.rows.map((r, index) => 
+          index === rowIndex ? { ...r, slots: newSlots } : r
+        )
       }
-      if (!file.type.startsWith('image/')) {
-        showToast('Please select a valid image file', 'error')
-        return
+    }))
+  }
+
+  const updateSlot = (rowIndex: number, slotIndex: number, field: string, value: any) => {
+    setTemplateData(prev => ({
+      ...prev,
+      slot_configuration: {
+        rows: prev.slot_configuration.rows.map((row, rIndex) => 
+          rIndex === rowIndex ? {
+            ...row,
+            slots: row.slots.map((slot, sIndex) => 
+              sIndex === slotIndex ? { ...slot, [field]: value } : slot
+            )
+          } : row
+        )
       }
-      setFormData({ ...formData, imageFile: file })
+    }))
+  }
+
+  const addProductTypeToSlot = (rowIndex: number, slotIndex: number, productTypeId: string) => {
+    const slot = templateData.slot_configuration.rows[rowIndex].slots[slotIndex]
+    if (!slot.allowed_product_types.includes(productTypeId)) {
+      updateSlot(rowIndex, slotIndex, 'allowed_product_types', [
+        ...slot.allowed_product_types,
+        productTypeId
+      ])
     }
   }
 
-  const validateForm = (): boolean => {
-    if (!formData.name.trim()) {
-      showToast('Machine template name is required', 'error')
-      return false
-    }
-    if (!formData.categoryId) {
-      showToast('Please select a machine category', 'error')
-      return false
-    }
-    if (!formData.modelNumber.trim()) {
-      showToast('Model number is required', 'error')
-      return false
-    }
-    if (!formData.lengthInches || !formData.widthInches || !formData.heightInches) {
-      showToast('All dimensions are required', 'error')
-      return false
-    }
-    
-    // Check if all slots have at least one product type and MDB code
-    const invalidSlots = slots.filter(slot => slot.productTypeIds.length === 0 || !slot.mdbCode.trim())
-    if (invalidSlots.length > 0) {
-      showToast('All slots must have at least one product type and MDB code', 'error')
-      return false
-    }
-    
-    return true
+  const removeProductTypeFromSlot = (rowIndex: number, slotIndex: number, productTypeId: string) => {
+    const slot = templateData.slot_configuration.rows[rowIndex].slots[slotIndex]
+    updateSlot(rowIndex, slotIndex, 'allowed_product_types', 
+      slot.allowed_product_types.filter(id => id !== productTypeId)
+    )
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!validateForm()) return
-    
-    setSaving(true)
-    
+  const validateStep = (step: number): boolean => {
+    switch (step) {
+      case 1:
+        return templateData.name.trim() !== '' && templateData.category_id !== ''
+      case 2:
+        return templateData.slot_configuration.rows.length > 0 &&
+               templateData.slot_configuration.rows.every(row => 
+                 row.slots.length > 0 && 
+                 row.slots.every(slot => slot.allowed_product_types.length > 0)
+               )
+      case 3:
+        return true // Technical info is optional
+      default:
+        return true
+    }
+  }
+
+  const nextStep = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(prev => Math.min(prev + 1, 4))
+    } else {
+      showToast('Please fill in all required fields', 'error')
+    }
+  }
+
+  const prevStep = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1))
+  }
+
+  const saveTemplate = async () => {
+    if (!validateStep(currentStep)) {
+      showToast('Please fill in all required fields', 'error')
+      return
+    }
+
+    setLoading(true)
     try {
-      let imageUrl = null
-      
-      // Upload image if provided
-      if (formData.imageFile) {
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}`
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('machine-images')
-          .upload(fileName, formData.imageFile)
-        
-        if (uploadError) throw uploadError
-        
-        const { data: urlData } = supabase.storage
-          .from('machine-images')
-          .getPublicUrl(fileName)
-        
-        imageUrl = urlData.publicUrl
-      }
-      
-      // Calculate total slot count
-      const totalSlotCount = slots.length
-      
-      // Create machine template with only required fields first
-      const templateData: any = {
-        name: formData.name.trim(),
-        category_id: formData.categoryId,
-        slot_count: totalSlotCount
-      }
-      
-      // Add optional fields if they exist in the schema
-      if (formData.modelNumber.trim()) {
-        templateData.model_number = formData.modelNumber.trim()
-      }
-      if (formData.lengthInches) {
-        templateData.length_inches = parseInt(formData.lengthInches)
-      }
-      if (formData.widthInches) {
-        templateData.width_inches = parseInt(formData.widthInches)
-      }
-      if (formData.heightInches) {
-        templateData.height_inches = parseInt(formData.heightInches)
-      }
-      if (formData.isOutdoorRated !== undefined) {
-        templateData.is_outdoor_rated = formData.isOutdoorRated
-      }
-      if (formData.technicalDescription.trim()) {
-        templateData.technical_description = formData.technicalDescription.trim()
-      }
-      if (imageUrl) {
-        templateData.image_url = imageUrl
-      }
-      
-      const { data: template, error: templateError } = await supabase
-        .from('machine_templates')
-        .insert(templateData)
+      const slotCount = templateData.slot_configuration.rows.reduce(
+        (total, row) => total + row.slots.length, 0
+      )
+
+      const { data, error } = await supabase
+        .from('global_machine_templates')
+        .insert({
+          name: templateData.name,
+          description: templateData.description,
+          category_id: templateData.category_id,
+          image_url: templateData.image_url,
+          slot_count: slotCount,
+          slot_configuration: templateData.slot_configuration,
+          model_number: templateData.model_number || null,
+          serial_number: templateData.serial_number || null,
+          dimensions: `${templateData.dimensions.length}x${templateData.dimensions.width}x${templateData.dimensions.height}`,
+          power_consumption: templateData.power_consumption || null,
+          technical_description: templateData.technical_description || null,
+          is_outdoor_rated: templateData.is_outdoor_rated,
+          created_by: user?.id
+        })
         .select()
         .single()
-      
-      if (templateError) throw templateError
-      
-      // Create slots and slot product types
-      if (slots.length > 0) {
-        for (const slot of slots) {
-          // Create the slot
-          const { data: slotData, error: slotError } = await supabase
-            .from('machine_template_slots')
-            .insert({
-              machine_template_id: template.id,
-              row_number: slot.rowNumber,
-              slot_number: slot.slotNumber,
-              mdb_code: slot.mdbCode.trim()
-            })
-            .select()
-            .single()
-          
-          if (slotError) throw slotError
-          
-          // Create slot product types
-          if (slot.productTypeIds.length > 0) {
-            const slotProductTypes = slot.productTypeIds.map(productTypeId => ({
-              machine_template_slot_id: slotData.id,
-              product_type_id: productTypeId
-            }))
-            
-            const { error: productTypesError } = await supabase
-              .from('machine_template_slot_product_types')
-              .insert(slotProductTypes)
-            
-            if (productTypesError) throw productTypesError
-          }
-        }
-      }
-      
+
+      if (error) throw error
+
       showToast('Machine template created successfully!', 'success')
       router.push('/admin/machine-templates')
-      
     } catch (error: any) {
       showToast('Failed to create machine template: ' + error.message, 'error')
     } finally {
-      setSaving(false)
+      setLoading(false)
     }
   }
 
@@ -315,410 +314,500 @@ export default function MachineTemplateBuilderPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Machine Template Builder</h1>
-        <p className="text-gray-600 mt-2">Create a new vending machine template with custom slot configuration</p>
+        <h1 className="text-3xl font-bold text-gray-900">Create Machine Template</h1>
+        <p className="text-gray-600 mt-2">Build a new machine template for the global catalog</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid lg:grid-cols-2 gap-8">
-        {/* Left Side - Form */}
-        <div className="space-y-6">
-          {/* Basic Information Section */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h2>
-            
-            {machineCategories.length === 0 && (
-              <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                <p className="text-yellow-800 text-sm">
-                  <strong>No machine categories found.</strong> You need to create machine categories first before creating templates.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => router.push('/admin/machine-categories')}
-                  className="mt-2 px-3 py-1 bg-yellow-600 text-white rounded text-sm hover:bg-yellow-700"
-                >
-                  Create Machine Categories
-                </button>
+      {/* Progress Steps */}
+      <div className="mb-8">
+        <div className="flex items-center justify-center">
+          {[1, 2, 3, 4].map((step) => (
+            <div key={step} className="flex items-center">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                currentStep >= step 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-200 text-gray-600'
+              }`}>
+                {step}
               </div>
-            )}
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Template Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter template name"
-                  required
-                />
-              </div>
+              {step < 4 && (
+                <div className={`w-16 h-1 mx-2 ${
+                  currentStep > step ? 'bg-blue-600' : 'bg-gray-200'
+                }`} />
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-center mt-4 text-sm text-gray-600">
+          <span className={currentStep >= 1 ? 'text-blue-600 font-medium' : ''}>Basic Info</span>
+          <span className="mx-4">→</span>
+          <span className={currentStep >= 2 ? 'text-blue-600 font-medium' : ''}>Slots</span>
+          <span className="mx-4">→</span>
+          <span className={currentStep >= 3 ? 'text-blue-600 font-medium' : ''}>Technical</span>
+          <span className="mx-4">→</span>
+          <span className={currentStep >= 4 ? 'text-blue-600 font-medium' : ''}>Review</span>
+        </div>
+      </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Machine Category *
-                </label>
-                <select
-                  value={formData.categoryId}
-                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="">Select a category</option>
-                  {machineCategories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+      {/* Step Content */}
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        {currentStep === 1 && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold text-gray-900">Basic Machine Information</h2>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Machine Name *
+              </label>
+              <input
+                type="text"
+                value={templateData.name}
+                onChange={(e) => updateTemplateData('name', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter machine name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Description
+              </label>
+              <textarea
+                value={templateData.description}
+                onChange={(e) => updateTemplateData('description', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter machine description"
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Machine Category *
+              </label>
+              <select
+                value={templateData.category_id}
+                onChange={(e) => updateTemplateData('category_id', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select a category</option>
+                {machineCategories.map(category => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Machine Image
+              </label>
+              <ImageUpload
+                currentImageUrl={templateData.image_url}
+                onImageUploaded={(url) => updateTemplateData('image_url', url)}
+                onUploadError={(error) => showToast(error, 'error')}
+                bucketName="machine-templates"
+                folderPath="templates"
+              />
             </div>
           </div>
+        )}
 
-          {/* Technical Information Section */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Technical Information</h2>
+        {currentStep === 2 && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold text-gray-900">Configure Machine Slots</h2>
             
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Model # *
-                </label>
-                <input
-                  type="text"
-                  value={formData.modelNumber}
-                  onChange={(e) => setFormData({ ...formData, modelNumber: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter model number"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Dimensions *
-                </label>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Length (inches)</label>
-                    <input
-                      type="number"
-                      value={formData.lengthInches}
-                      onChange={(e) => setFormData({ ...formData, lengthInches: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="72"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Width (inches)</label>
-                    <input
-                      type="number"
-                      value={formData.widthInches}
-                      onChange={(e) => setFormData({ ...formData, widthInches: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="36"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Height (inches)</label>
-                    <input
-                      type="number"
-                      value={formData.heightInches}
-                      onChange={(e) => setFormData({ ...formData, heightInches: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="84"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.isOutdoorRated}
-                    onChange={(e) => setFormData({ ...formData, isOutdoorRated: e.target.checked })}
-                    className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Indoor or Outdoor Rated</span>
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description (Optional)
-                </label>
-                <textarea
-                  value={formData.technicalDescription}
-                  onChange={(e) => setFormData({ ...formData, technicalDescription: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Any other relevant information locations would need to know i.e. unique power / water requirements"
-                  rows={3}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Machine Image
-                </label>
-                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-gray-400 transition-colors">
-                  <div className="space-y-1 text-center">
-                    <svg
-                      className="mx-auto h-12 w-12 text-gray-400"
-                      stroke="currentColor"
-                      fill="none"
-                      viewBox="0 0 48 48"
-                      aria-hidden="true"
-                    >
-                      <path
-                        d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                        strokeWidth={2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    <div className="flex text-sm text-gray-600">
-                      <label
-                        htmlFor="image-upload"
-                        className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
-                      >
-                        <span>Choose File</span>
-                        <input
-                          id="image-upload"
-                          name="image-upload"
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          className="sr-only"
-                        />
-                      </label>
-                      <p className="pl-1">or drag and drop</p>
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      Image photo needs to be Square Aspect Ratio. Recommended size: 400x400 pixels for optimal display on machine cards.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Slot Configuration Section */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Slot Configuration</h2>
+            {/* Row Management */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Row Management</h3>
               <button
-                type="button"
                 onClick={addRow}
-                className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
               >
                 Add Row
               </button>
             </div>
 
-            {productTypes.length === 0 && (
-              <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                <p className="text-yellow-800 text-sm">
-                  <strong>No product types found.</strong> You need to create product types first before configuring slots.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => router.push('/admin/product-types')}
-                  className="mt-2 px-3 py-1 bg-yellow-600 text-white rounded text-sm hover:bg-yellow-700"
-                >
-                  Create Product Types
-                </button>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              {rows.map((rowSlots, rowIndex) => (
-                <div key={rowIndex} className="border border-gray-200 rounded-md p-4">
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="font-medium text-gray-900">Row {rowIndex + 1}</h3>
-                    <div className="flex items-center space-x-2">
-                      <select
-                        value={rowSlots.length}
-                        onChange={(e) => updateSlotsInRow(rowIndex, parseInt(e.target.value))}
-                        className="px-2 py-1 border border-gray-300 rounded text-sm"
-                      >
-                        {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
-                          <option key={num} value={num}>{num} slot{num !== 1 ? 's' : ''}</option>
-                        ))}
-                      </select>
-                      {rows.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeRow(rowIndex)}
-                          className="px-2 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                        >
-                          Remove Row
-                        </button>
+            {/* Rows */}
+            {templateData.slot_configuration.rows.map((row, rowIndex) => (
+              <div key={rowIndex} className="border border-gray-200 rounded-lg">
+                <div className="flex justify-between items-center p-4">
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setExpandedRows(prev => ({ ...prev, [row.row_number]: !prev[row.row_number] }))}
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      {expandedRows[row.row_number] ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
                       )}
-                    </div>
+                    </button>
+                    <h4 className="text-lg font-medium text-gray-900">Row {row.row_number}</h4>
+                    {row.slots.length > 0 && (
+                      <span className="text-sm text-gray-500">({row.slots.length} slots)</span>
+                    )}
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    {rowSlots.map((_, slotIndex) => {
-                      const slotNumber = slotIndex + 1
-                      const rowNumber = rowIndex + 1
-                      const slot = slots.find(s => s.rowNumber === rowNumber && s.slotNumber === slotNumber) || {
-                        rowNumber,
-                        slotNumber,
-                        productTypeIds: [],
-                        mdbCode: ''
-                      }
-
-                      return (
-                        <div key={slotIndex} className="space-y-2">
-                          <h4 className="text-sm font-medium text-gray-700">Slot {slotNumber}</h4>
-                          
-                          {/* Product Types */}
-                          <div className="space-y-2">
-                            <label className="block text-xs text-gray-600">Product Types</label>
-                            {slot.productTypeIds.map((productTypeId, index) => (
-                              <div key={index} className="flex items-center space-x-2">
-                                <select
-                                  value={productTypeId}
-                                  onChange={(e) => {
-                                    const newProductTypeIds = [...slot.productTypeIds]
-                                    newProductTypeIds[index] = e.target.value
-                                    updateSlot(rowNumber, slotNumber, 'productTypeIds', newProductTypeIds)
-                                  }}
-                                  className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
-                                  required
-                                >
-                                  <option value="">Select product type</option>
-                                  {productTypes.map((type) => (
-                                    <option key={type.id} value={type.id}>
-                                      {type.name}
-                                    </option>
-                                  ))}
-                                </select>
-                                <button
-                                  type="button"
-                                  onClick={() => removeProductTypeFromSlot(rowNumber, slotNumber, productTypeId)}
-                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            ))}
-                            <button
-                              type="button"
-                              onClick={() => addProductTypeToSlot(rowNumber, slotNumber, productTypes[0]?.id || '')}
-                              className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
-                            >
-                              + Add Product Type
-                            </button>
-                          </div>
-
-                          {/* MDB Code */}
-                          <input
-                            type="text"
-                            value={slot.mdbCode}
-                            onChange={(e) => updateSlot(rowNumber, slotNumber, 'mdbCode', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                            placeholder="MDB Code"
-                            required
-                          />
-                        </div>
-                      )
-                    })}
+                  <div className="flex items-center space-x-2">
+                    {row.slots.length === 0 && (
+                      <div className="flex items-center space-x-2">
+                        <select
+                          onChange={(e) => addSlotsToRow(rowIndex, parseInt(e.target.value))}
+                          className="px-3 py-1 border border-gray-300 rounded-md"
+                          defaultValue=""
+                        >
+                          <option value="">Select slots</option>
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                            <option key={num} value={num}>{num} slots</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => deleteRow(rowIndex)}
+                      className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                    >
+                      Delete Row
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
+
+                {/* Collapsible Content */}
+                {expandedRows[row.row_number] && (
+                  <div className="px-4 pb-4">
+
+                {/* Slot Grid */}
+                {row.slots.length > 0 && (
+                  <div className="grid grid-cols-10 gap-2 mb-4">
+                    {row.slots.map((slot, slotIndex) => (
+                      <div
+                        key={slotIndex}
+                        className="w-12 h-12 border-2 border-gray-300 rounded-lg flex items-center justify-center text-xs font-medium bg-white hover:bg-gray-50 cursor-pointer"
+                        title={`${slot.alias} - ${slot.allowed_product_types.length} product types`}
+                      >
+                        {slot.slot_id}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Slot Configuration */}
+                {row.slots.length > 0 && (
+                  <div className="space-y-4">
+                    <h5 className="font-medium text-gray-900">Slot Configuration</h5>
+                    {row.slots.map((slot, slotIndex) => (
+                      <div key={slotIndex} className="border border-gray-200 rounded-lg p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Slot Alias
+                            </label>
+                            <input
+                              type="text"
+                              value={slot.alias}
+                              onChange={(e) => updateSlot(rowIndex, slotIndex, 'alias', e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              MDB Code
+                            </label>
+                            <input
+                              type="text"
+                              value={slot.mdb_code}
+                              onChange={(e) => updateSlot(rowIndex, slotIndex, 'mdb_code', e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Product Types *
+                            </label>
+                            <select
+                              onChange={(e) => addProductTypeToSlot(rowIndex, slotIndex, e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              value=""
+                            >
+                              <option value="">Add product type</option>
+                              {productTypes.map(type => (
+                                <option key={type.id} value={type.id}>
+                                  {type.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        
+                        {/* Selected Product Types */}
+                        {slot.allowed_product_types.length > 0 && (
+                          <div className="mt-3">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Selected Product Types:
+                            </label>
+                            <div className="flex flex-wrap gap-2">
+                              {slot.allowed_product_types.map(typeId => {
+                                const productType = productTypes.find(pt => pt.id === typeId)
+                                return (
+                                  <span
+                                    key={typeId}
+                                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                                  >
+                                    {productType?.name}
+                                    <button
+                                      onClick={() => removeProductTypeFromSlot(rowIndex, slotIndex, typeId)}
+                                      className="ml-1 text-blue-600 hover:text-blue-800"
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
+        )}
 
-          <div className="flex space-x-3">
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              {saving ? 'Creating...' : 'Create Template'}
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push('/admin/machine-templates')}
-              className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-
-        {/* Right Side - Live Preview */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border h-fit">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Live Preview</h2>
-          
-          <div className="space-y-4">
-            <div className="text-sm text-gray-600">
-              <p><strong>Name:</strong> {formData.name || 'Not set'}</p>
-              <p><strong>Category:</strong> {machineCategories.find(c => c.id === formData.categoryId)?.name || 'Not selected'}</p>
-              <p><strong>Model:</strong> {formData.modelNumber || 'Not set'}</p>
-              <p><strong>Dimensions:</strong> {formData.lengthInches && formData.widthInches && formData.heightInches ? `${formData.lengthInches}" × ${formData.widthInches}" × ${formData.heightInches}"` : 'Not set'}</p>
-              <p><strong>Outdoor Rated:</strong> {formData.isOutdoorRated ? 'Yes' : 'No'}</p>
-            </div>
-
-            {formData.imageFile && (
+        {currentStep === 3 && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold text-gray-900">Technical Information (Optional)</h2>
+            <p className="text-sm text-gray-600">This section is optional and can be edited by operators at any time.</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Machine Image:</p>
-                <img
-                  src={URL.createObjectURL(formData.imageFile)}
-                  alt="Machine preview"
-                  className="w-full h-48 object-cover rounded-md border"
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Machine Model #
+                </label>
+                <input
+                  type="text"
+                  value={templateData.model_number}
+                  onChange={(e) => updateTemplateData('model_number', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter model number"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Serial #
+                </label>
+                <input
+                  type="text"
+                  value={templateData.serial_number}
+                  onChange={(e) => updateTemplateData('serial_number', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter serial number"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Dimensions (inches)
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <input
+                    type="text"
+                    value={templateData.dimensions.length}
+                    onChange={(e) => updateDimensions('length', e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="L"
+                  />
+                  <input
+                    type="text"
+                    value={templateData.dimensions.width}
+                    onChange={(e) => updateDimensions('width', e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="W"
+                  />
+                  <input
+                    type="text"
+                    value={templateData.dimensions.height}
+                    onChange={(e) => updateDimensions('height', e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="H"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Power Consumption
+                </label>
+                <input
+                  type="text"
+                  value={templateData.power_consumption}
+                  onChange={(e) => updateTemplateData('power_consumption', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter power consumption"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Machine Description
+              </label>
+              <textarea
+                value={templateData.technical_description}
+                onChange={(e) => updateTemplateData('technical_description', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter technical description"
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={templateData.is_outdoor_rated}
+                  onChange={(e) => updateTemplateData('is_outdoor_rated', e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span className="ml-2 text-sm font-medium text-gray-700">
+                  Outdoor Rated
+                </span>
+              </label>
+            </div>
+          </div>
+        )}
+
+        {currentStep === 4 && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold text-gray-900">Review Machine Template</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
+                <div className="space-y-2">
+                  <div>
+                    <span className="font-medium">Name:</span> {templateData.name}
+                  </div>
+                  <div>
+                    <span className="font-medium">Category:</span> {
+                      machineCategories.find(c => c.id === templateData.category_id)?.name
+                    }
+                  </div>
+                  <div>
+                    <span className="font-medium">Description:</span> {templateData.description || 'None'}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Slot Configuration</h3>
+                <div className="space-y-2">
+                  <div>
+                    <span className="font-medium">Total Rows:</span> {templateData.slot_configuration.rows.length}
+                  </div>
+                  <div>
+                    <span className="font-medium">Total Slots:</span> {
+                      templateData.slot_configuration.rows.reduce((total, row) => total + row.slots.length, 0)
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {templateData.slot_configuration.rows.length > 0 && (
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Slot Layout</h3>
+                <div className="space-y-4">
+                  {templateData.slot_configuration.rows.map((row, rowIndex) => (
+                    <div key={rowIndex} className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-2">Row {row.row_number}</h4>
+                      <div className="grid grid-cols-10 gap-2">
+                        {row.slots.map((slot, slotIndex) => (
+                          <div
+                            key={slotIndex}
+                            className="w-12 h-12 border-2 border-gray-300 rounded-lg flex items-center justify-center text-xs font-medium bg-blue-50"
+                            title={`${slot.alias} - ${slot.allowed_product_types.length} product types`}
+                          >
+                            {slot.slot_id}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
-            <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">Slot Layout:</p>
-              <div className="border border-gray-300 rounded-md p-4 bg-gray-50">
-                {rows.map((rowSlots, rowIndex) => (
-                  <div key={rowIndex} className="mb-3 last:mb-0">
-                    <div className="text-xs text-gray-500 mb-1">Row {rowIndex + 1}</div>
-                    <div className="flex space-x-2">
-                      {rowSlots.map((_, slotIndex) => {
-                        const slotNumber = slotIndex + 1
-                        const rowNumber = rowIndex + 1
-                        const slot = slots.find(s => s.rowNumber === rowNumber && s.slotNumber === slotNumber)
-                        const isComplete = slot && slot.productTypeIds.length > 0 && slot.mdbCode.trim()
-                        
-                        return (
-                          <div
-                            key={slotIndex}
-                            className={`w-12 h-12 border-2 rounded flex items-center justify-center text-xs font-medium ${
-                              isComplete 
-                                ? 'border-green-500 bg-green-100 text-green-800' 
-                                : 'border-gray-300 bg-gray-100 text-gray-500'
-                            }`}
-                          >
-                            {slotNumber}
-                          </div>
-                        )
-                      })}
+            {(templateData.model_number || templateData.serial_number || templateData.dimensions.length) && (
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Technical Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {templateData.model_number && (
+                    <div><span className="font-medium">Model #:</span> {templateData.model_number}</div>
+                  )}
+                  {templateData.serial_number && (
+                    <div><span className="font-medium">Serial #:</span> {templateData.serial_number}</div>
+                  )}
+                  {(templateData.dimensions.length || templateData.dimensions.width || templateData.dimensions.height) && (
+                    <div>
+                      <span className="font-medium">Dimensions:</span> {
+                        `${templateData.dimensions.length}x${templateData.dimensions.width}x${templateData.dimensions.height} inches`
+                      }
                     </div>
-                  </div>
-                ))}
+                  )}
+                  {templateData.power_consumption && (
+                    <div><span className="font-medium">Power:</span> {templateData.power_consumption}</div>
+                  )}
+                  {templateData.is_outdoor_rated && (
+                    <div><span className="font-medium">Outdoor Rated:</span> Yes</div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
+          </div>
+        )}
 
-            <div className="text-sm text-gray-600">
-              <p><strong>Total Rows:</strong> {rows.length}</p>
-              <p><strong>Total Slots:</strong> {rows.reduce((sum, row) => sum + row.length, 0)}</p>
-              <p><strong>Complete Slots:</strong> {slots.filter(s => s.productTypeIds.length > 0 && s.mdbCode.trim()).length}</p>
-            </div>
+        {/* Navigation Buttons */}
+        <div className="flex justify-between mt-8">
+          <button
+            onClick={prevStep}
+            disabled={currentStep === 1}
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Previous
+          </button>
+          
+          <div className="flex space-x-2">
+            {currentStep < 4 ? (
+              <button
+                onClick={nextStep}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                onClick={saveTemplate}
+                disabled={loading}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : 'Save Template'}
+              </button>
+            )}
           </div>
         </div>
-      </form>
+      </div>
     </div>
   )
 } 

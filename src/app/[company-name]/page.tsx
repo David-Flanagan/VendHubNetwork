@@ -608,50 +608,49 @@ export default function CompanyProfilePage() {
       const { data, error } = await supabase
         .from('company_machine_templates')
         .select(`
-          machine_template:machine_templates (
-            id,
-            name,
-            category_id,
-            image_url,
-            dimensions,
-            slot_count
-          )
+          id,
+          name,
+          description,
+          image_url,
+          dimensions,
+          slot_count,
+          category_id,
+          is_active
         `)
         .eq('company_id', companyId)
         .eq('is_active', true)
 
-      if (error) throw error
+      if (error) {
+        console.error('Error fetching machine templates:', error)
+        throw error
+      }
 
-      // Get category names for the templates
-      const templateIds = (data || []).map((item: any) => item.machine_template.id)
-      const { data: categoryData, error: categoryError } = await supabase
-        .from('machine_templates')
-        .select(`
-          id,
-          machine_category:machine_categories (
-            id,
-            name
-          )
-        `)
-        .in('id', templateIds)
+      // Get machine categories for lookup
+      const { data: categories, error: categoriesError } = await supabase
+        .from('machine_categories')
+        .select('id, name')
+        .order('name')
 
-      if (categoryError) throw categoryError
+      if (categoriesError) {
+        console.error('Error fetching machine categories:', categoriesError)
+        throw categoriesError
+      }
 
-      const categoryMap = new Map()
-      categoryData?.forEach((item: any) => {
-        if (item.machine_category) {
-          categoryMap.set(item.id, item.machine_category.name)
-        }
-      })
+      // Create a lookup map for categories
+      const categoryMap = new Map(categories?.map(cat => [cat.id, cat.name]) || [])
+
+      // Get unique category IDs from templates to show only categories with machines
+      const templateCategoryIds = new Set((data || []).map((item: any) => item.category_id))
+      const availableCategories = categories?.filter(cat => templateCategoryIds.has(cat.id)) || []
 
       const templates: MachineTemplate[] = (data || []).map((item: any) => ({
-        id: item.machine_template.id,
-        name: item.machine_template.name,
-        category: categoryMap.get(item.machine_template.id) || 'Unknown',
-        category_id: item.machine_template.category_id,
-        image_url: item.machine_template.image_url,
-        dimensions: item.machine_template.dimensions || 'N/A',
-        slot_count: item.machine_template.slot_count || 0
+        id: item.id,
+        name: item.name,
+        category: categoryMap.get(item.category_id) || 'Unknown',
+        category_id: item.category_id,
+        image_url: item.image_url,
+        dimensions: item.dimensions || 'N/A',
+        slot_count: item.slot_count || 0
       }))
 
       setMachineTemplates(templates)

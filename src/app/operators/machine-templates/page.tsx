@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
+import { formatDate } from '@/lib/date-utils'
 
 interface CompanyMachineTemplate {
   id: string
@@ -13,7 +14,7 @@ interface CompanyMachineTemplate {
   custom_image_url: string | null
   is_active: boolean
   created_at: string
-  machine_template: {
+  global_machine_template: {
     id: string
     name: string
     category: {
@@ -23,6 +24,9 @@ interface CompanyMachineTemplate {
     image_url: string | null
     dimensions: string | null
     slot_count: number
+    model_number: string | null
+    is_outdoor_rated: boolean | null
+    technical_description: string | null
     created_by_company: {
       name: string
     } | null
@@ -62,15 +66,16 @@ export default function CompanyMachineTemplatesPage() {
     if (searchTerm.trim()) {
       const search = searchTerm.toLowerCase()
       filtered = filtered.filter(template => 
-        (template.custom_name || template.machine_template.name).toLowerCase().includes(search) ||
-        template.machine_template.category.name.toLowerCase().includes(search) ||
-        (template.custom_dimensions || template.machine_template.dimensions || '').toLowerCase().includes(search)
+        (template.custom_name || template.global_machine_template.name).toLowerCase().includes(search) ||
+        template.global_machine_template.category.name.toLowerCase().includes(search) ||
+        (template.custom_dimensions || template.global_machine_template.dimensions || '').toLowerCase().includes(search) ||
+        (template.global_machine_template.model_number || '').toLowerCase().includes(search)
       )
     }
 
     // Filter by category
     if (selectedCategory !== 'all') {
-      filtered = filtered.filter(template => template.machine_template.category.id === selectedCategory)
+      filtered = filtered.filter(template => template.global_machine_template.category.id === selectedCategory)
     }
 
     setCompanyTemplates(filtered)
@@ -93,19 +98,16 @@ export default function CompanyMachineTemplatesPage() {
         .from('company_machine_templates')
         .select(`
           id,
-          custom_name,
-          custom_dimensions,
-          custom_image_url,
+          name,
+          description,
+          image_url,
+          dimensions,
+          slot_count,
+          slot_configuration,
           is_active,
           created_at,
-          machine_template:machine_templates(
-            id,
-            name,
-            image_url,
-            dimensions,
-            category_id,
-            slot_count
-          )
+          category_id,
+          global_machine_template_id
         `)
         .eq('company_id', userData.company_id)
         .order('created_at', { ascending: false })
@@ -129,22 +131,25 @@ export default function CompanyMachineTemplatesPage() {
       // Transform the data to match our interface
       const transformedData = (data || []).map((item: any) => ({
         id: item.id,
-        custom_name: item.custom_name,
-        custom_dimensions: item.custom_dimensions,
-        custom_image_url: item.custom_image_url,
+        custom_name: item.name, // Use the company template name
+        custom_dimensions: item.dimensions,
+        custom_image_url: item.image_url,
         is_active: item.is_active,
         created_at: item.created_at,
-        machine_template: {
-          id: item.machine_template.id,
-          name: item.machine_template.name,
-          image_url: item.machine_template.image_url,
-          dimensions: item.machine_template.dimensions,
+        global_machine_template: {
+          id: item.global_machine_template_id || item.id,
+          name: item.name,
+          image_url: item.image_url,
+          dimensions: item.dimensions,
           category: {
-            id: item.machine_template.category_id,
-            name: categoryMap.get(item.machine_template.category_id) || 'Unknown'
+            id: item.category_id,
+            name: categoryMap.get(item.category_id) || 'Unknown'
           },
-          slot_count: item.machine_template.slot_count || 0,
-          created_by_company: null
+          slot_count: item.slot_count || 0,
+          model_number: null, // Not stored in company templates
+          is_outdoor_rated: null, // Not stored in company templates
+          technical_description: item.description,
+          created_by_company: null // Not needed for company templates
         }
       }))
 
@@ -210,12 +215,20 @@ export default function CompanyMachineTemplatesPage() {
             <h1 className="text-3xl font-bold text-gray-900">My Company Machine Templates</h1>
             <p className="text-gray-600 mt-2">Manage your company's machine templates</p>
           </div>
-          <button
-            onClick={() => router.push('/operators/global-machine-templates')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Browse Global Templates
-          </button>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => router.push('/operators/global-machine-templates')}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Browse Global Templates
+            </button>
+            <button
+              onClick={() => router.push('/operators/machine-templates/builder')}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+            >
+              Create New Template
+            </button>
+          </div>
         </div>
       </div>
 
@@ -237,7 +250,7 @@ export default function CompanyMachineTemplatesPage() {
               <input
                 type="text"
                 id="search"
-                placeholder="Search by template name, category, or dimensions..."
+                placeholder="Search by template name, category, model number, or dimensions..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -267,7 +280,7 @@ export default function CompanyMachineTemplatesPage() {
                 All Categories ({allCompanyTemplates.length})
               </button>
               {machineCategories.map(category => {
-                const count = allCompanyTemplates.filter(template => template.machine_template.category.id === category.id).length
+                const count = allCompanyTemplates.filter(template => template.global_machine_template.category.id === category.id).length
                 return (
                   <button
                     key={category.id}
@@ -323,22 +336,30 @@ export default function CompanyMachineTemplatesPage() {
       {companyTemplates.length === 0 ? (
         <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
           <p className="text-gray-500 mb-4">No machine templates in your company catalog.</p>
-          <button
-            onClick={() => router.push('/operators/global-machine-templates')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Add Templates from Global Catalog
-          </button>
+          <div className="flex justify-center space-x-3">
+            <button
+              onClick={() => router.push('/operators/global-machine-templates')}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Add Templates from Global Catalog
+            </button>
+            <button
+              onClick={() => router.push('/operators/machine-templates/builder')}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+            >
+              Create New Template
+            </button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {companyTemplates.map((template) => (
             <div key={template.id} className="bg-white rounded-lg shadow-sm border overflow-hidden">
-              {(template.custom_image_url || template.machine_template.image_url) && (
+              {(template.custom_image_url || template.global_machine_template.image_url) && (
                 <div className="h-[400px] overflow-hidden">
                   <img
-                    src={(template.custom_image_url || template.machine_template.image_url) || ''}
-                    alt={template.custom_name || template.machine_template.name}
+                    src={(template.custom_image_url || template.global_machine_template.image_url) || ''}
+                    alt={template.custom_name || template.global_machine_template.name}
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -347,7 +368,7 @@ export default function CompanyMachineTemplatesPage() {
               <div className="p-6">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="text-lg font-semibold text-gray-900">
-                    {template.custom_name || template.machine_template.name}
+                    {template.custom_name || template.global_machine_template.name}
                   </h3>
                   <div className="flex items-center space-x-2">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -361,12 +382,19 @@ export default function CompanyMachineTemplatesPage() {
                 </div>
                 
                 <div className="space-y-2 text-sm text-gray-600 mb-4">
-                  <p><strong>Category:</strong> {template.machine_template.category.name}</p>
-                  <p><strong>Dimensions:</strong> {template.custom_dimensions || template.machine_template.dimensions || 'Not specified'}</p>
-                  <p><strong>Slots:</strong> {template.machine_template.slot_count}</p>
-                  {template.machine_template.created_by_company && (
-                    <p><strong>Created by:</strong> {template.machine_template.created_by_company.name}</p>
+                  <p><strong>Category:</strong> {template.global_machine_template.category.name}</p>
+                  {template.global_machine_template.model_number && (
+                    <p><strong>Model:</strong> {template.global_machine_template.model_number}</p>
                   )}
+                  <p><strong>Dimensions:</strong> {template.custom_dimensions || template.global_machine_template.dimensions || 'Not specified'}</p>
+                  <p><strong>Slots:</strong> {template.global_machine_template.slot_count}</p>
+                  {template.global_machine_template.is_outdoor_rated && (
+                    <p><strong>Outdoor Rated:</strong> Yes</p>
+                  )}
+                  {template.global_machine_template.created_by_company && (
+                    <p><strong>Created by:</strong> {template.global_machine_template.created_by_company.name}</p>
+                  )}
+                  <p><strong>Added:</strong> {formatDate(template.created_at)}</p>
                 </div>
 
                 <div className="flex space-x-2">
@@ -389,7 +417,7 @@ export default function CompanyMachineTemplatesPage() {
                   </button>
                   
                   <button
-                    onClick={() => removeFromCompanyCatalog(template.id, template.custom_name || template.machine_template.name)}
+                    onClick={() => removeFromCompanyCatalog(template.id, template.custom_name || template.global_machine_template.name)}
                     className="flex-1 px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm"
                   >
                     Remove

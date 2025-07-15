@@ -137,6 +137,8 @@ export interface Company {
   incorporated_date?: string
   processing_fee_percentage?: number
   sales_tax_percentage?: number
+  price_rounding_direction?: 'up' | 'down'
+  price_rounding_increment?: number
   sections_config?: {
     [key: string]: {
       enabled: boolean

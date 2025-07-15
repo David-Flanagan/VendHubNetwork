@@ -382,55 +382,55 @@ export default function OperatorMachineTemplateBuilderPage() {
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                       Length (inches) *
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.lengthInches}
-                      onChange={(e) => setFormData({ ...formData, lengthInches: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  </label>
+                      <input
+                        type="number"
+                        value={formData.lengthInches}
+                        onChange={(e) => setFormData({ ...formData, lengthInches: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Length"
-                      required
-                    />
-                  </div>
-                  <div>
+                        required
+                      />
+                    </div>
+                    <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Width (inches) *
                     </label>
-                    <input
-                      type="number"
-                      value={formData.widthInches}
-                      onChange={(e) => setFormData({ ...formData, widthInches: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      <input
+                        type="number"
+                        value={formData.widthInches}
+                        onChange={(e) => setFormData({ ...formData, widthInches: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Width"
-                      required
-                    />
-                  </div>
-                  <div>
+                        required
+                      />
+                    </div>
+                    <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Height (inches) *
                     </label>
-                    <input
-                      type="number"
-                      value={formData.heightInches}
-                      onChange={(e) => setFormData({ ...formData, heightInches: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      <input
+                        type="number"
+                        value={formData.heightInches}
+                        onChange={(e) => setFormData({ ...formData, heightInches: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Height"
-                      required
-                    />
+                        required
+                      />
                   </div>
                 </div>
 
                 <div className="flex items-center">
-                  <input
-                    type="checkbox"
+                    <input
+                      type="checkbox"
                     id="outdoorRated"
-                    checked={formData.isOutdoorRated}
-                    onChange={(e) => setFormData({ ...formData, isOutdoorRated: e.target.checked })}
+                      checked={formData.isOutdoorRated}
+                      onChange={(e) => setFormData({ ...formData, isOutdoorRated: e.target.checked })}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
+                    />
                   <label htmlFor="outdoorRated" className="ml-2 block text-sm text-gray-900">
                     Outdoor Rated
                   </label>
@@ -463,7 +463,7 @@ export default function OperatorMachineTemplateBuilderPage() {
                   Add Row
                 </button>
               </div>
-              
+
               {productTypes.length === 0 && (
                 <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
                   <p className="text-yellow-800 text-sm">
@@ -498,12 +498,12 @@ export default function OperatorMachineTemplateBuilderPage() {
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 gap-3">
                       {row.map((_, slotIndex) => {
                         const slotNumber = slotIndex + 1
                         const slot = slots.find(s => s.rowNumber === rowIndex + 1 && s.slotNumber === slotNumber)
-                        
+
                         return (
                           <div key={slotIndex} className="border border-gray-200 rounded p-3">
                             <div className="flex justify-between items-center mb-2">
@@ -537,7 +537,7 @@ export default function OperatorMachineTemplateBuilderPage() {
                               
                               <div>
                                 <label className="block text-xs text-gray-600 mb-1">Allowed Product Types *</label>
-                                <div className="space-y-2">
+                            <div className="space-y-2">
                                   {productTypes.map((productType) => {
                                     const isSelected = slot?.productTypeIds.includes(productType.id) || false
                                     return (
@@ -545,7 +545,7 @@ export default function OperatorMachineTemplateBuilderPage() {
                                         <input
                                           type="checkbox"
                                           checked={isSelected}
-                                          onChange={(e) => {
+                                    onChange={(e) => {
                                             if (e.target.checked) {
                                               addProductTypeToSlot(rowIndex + 1, slotNumber, productType.id)
                                             } else {
@@ -572,13 +572,13 @@ export default function OperatorMachineTemplateBuilderPage() {
 
             {/* Submit Button */}
             <div className="flex justify-end space-x-3">
-              <button
-                type="button"
+                <button
+                  type="button"
                 onClick={() => router.push('/operators/machine-templates')}
                 className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-              >
+                >
                 Cancel
-              </button>
+                </button>
               <button
                 type="submit"
                 disabled={saving}
@@ -595,7 +595,7 @@ export default function OperatorMachineTemplateBuilderPage() {
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Template Preview</h2>
               
               {formData.name && (
-                <div className="space-y-4">
+            <div className="space-y-4">
                   <div>
                     <h3 className="font-medium text-gray-900">{formData.name}</h3>
                     {formData.categoryId && (
@@ -606,18 +606,18 @@ export default function OperatorMachineTemplateBuilderPage() {
                     {formData.modelNumber && (
                       <p className="text-sm text-gray-600">Model: {formData.modelNumber}</p>
                     )}
-                  </div>
-                  
+              </div>
+
                   {formData.lengthInches && formData.widthInches && formData.heightInches && (
-                    <div>
+                <div>
                       <p className="text-sm text-gray-600">
                         Dimensions: {formData.lengthInches}" × {formData.widthInches}" × {formData.heightInches}"
                       </p>
-                    </div>
-                  )}
-                  
+                </div>
+              )}
+
                   {formData.isOutdoorRated && (
-                    <div>
+              <div>
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         Outdoor Rated
                       </span>
@@ -639,7 +639,7 @@ export default function OperatorMachineTemplateBuilderPage() {
                                 ).join(', ')
                               : 'None selected'
                             }</div>
-                          </div>
+                            </div>
                         ))}
                       </div>
                     </div>

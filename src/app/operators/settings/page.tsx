@@ -28,6 +28,11 @@ export default function CompanySettingsPage() {
     contact_phone: '',
     website: '',
     
+    // Primary Contact Information
+    primary_contact_name: '',
+    primary_contact_phone: '',
+    primary_contact_email: '',
+    
     // Business Credentials
     incorporated_date: '',
     logo_url: '',
@@ -39,7 +44,9 @@ export default function CompanySettingsPage() {
     
     // Commission Settings
     processing_fee_percentage: '',
-    sales_tax_percentage: ''
+    sales_tax_percentage: '',
+    price_rounding_direction: 'up',
+    price_rounding_increment: '0.25'
   })
 
   useEffect(() => {
@@ -72,6 +79,11 @@ export default function CompanySettingsPage() {
           contact_phone: companyData.contact_phone || '',
           website: companyData.website || '',
           
+          // Primary Contact Information
+          primary_contact_name: companyData.primary_contact_name || '',
+          primary_contact_phone: companyData.primary_contact_phone || '',
+          primary_contact_email: companyData.primary_contact_email || '',
+          
           // Business Credentials
           incorporated_date: companyData.incorporated_date || '',
           logo_url: companyData.logo_url || '',
@@ -83,7 +95,9 @@ export default function CompanySettingsPage() {
           
           // Commission Settings
           processing_fee_percentage: companyData.processing_fee_percentage?.toString() || '',
-          sales_tax_percentage: companyData.sales_tax_percentage?.toString() || ''
+          sales_tax_percentage: companyData.sales_tax_percentage?.toString() || '',
+          price_rounding_direction: companyData.price_rounding_direction || 'up',
+          price_rounding_increment: companyData.price_rounding_increment?.toString() || '0.25'
         })
       } else {
         console.error('Error fetching company data:', companyError)
@@ -116,6 +130,11 @@ export default function CompanySettingsPage() {
         contact_phone: formData.contact_phone,
         website: formData.website,
         
+        // Primary Contact Information
+        primary_contact_name: formData.primary_contact_name,
+        primary_contact_phone: formData.primary_contact_phone,
+        primary_contact_email: formData.primary_contact_email,
+        
         // Business Credentials
         incorporated_date: formData.incorporated_date || null,
         logo_url: formData.logo_url || null,
@@ -127,7 +146,9 @@ export default function CompanySettingsPage() {
         
         // Commission Settings
         processing_fee_percentage: formData.processing_fee_percentage ? parseFloat(formData.processing_fee_percentage) : null,
-        sales_tax_percentage: formData.sales_tax_percentage ? parseFloat(formData.sales_tax_percentage) : null
+        sales_tax_percentage: formData.sales_tax_percentage ? parseFloat(formData.sales_tax_percentage) : null,
+        price_rounding_direction: formData.price_rounding_direction,
+        price_rounding_increment: formData.price_rounding_increment ? parseFloat(formData.price_rounding_increment) : 0.25
       }
 
       const { error } = await supabase
@@ -147,7 +168,7 @@ export default function CompanySettingsPage() {
     }
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
     setFormData(prev => ({
       ...prev,
@@ -333,6 +354,57 @@ export default function CompanySettingsPage() {
           />
         </div>
       </div>
+
+      <div>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Primary Contact Information</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          This information will be displayed to customers during the onboarding process and on your company profile.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label htmlFor="primary_contact_name" className="block text-sm font-medium text-gray-700 mb-2">
+              Primary Contact Name
+            </label>
+            <input
+              type="text"
+              id="primary_contact_name"
+              name="primary_contact_name"
+              value={formData.primary_contact_name}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="John Smith"
+            />
+          </div>
+          <div>
+            <label htmlFor="primary_contact_phone" className="block text-sm font-medium text-gray-700 mb-2">
+              Primary Contact Phone
+            </label>
+            <input
+              type="tel"
+              id="primary_contact_phone"
+              name="primary_contact_phone"
+              value={formData.primary_contact_phone}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="(555) 123-4567"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label htmlFor="primary_contact_email" className="block text-sm font-medium text-gray-700 mb-2">
+              Primary Contact Email
+            </label>
+            <input
+              type="email"
+              id="primary_contact_email"
+              name="primary_contact_email"
+              value={formData.primary_contact_email}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="john.smith@company.com"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   )
 
@@ -498,6 +570,48 @@ export default function CompanySettingsPage() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label htmlFor="price_rounding_direction" className="block text-sm font-medium text-gray-700 mb-2">
+            Price Rounding Direction *
+          </label>
+          <select
+            id="price_rounding_direction"
+            name="price_rounding_direction"
+            value={formData.price_rounding_direction}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="up">Round Up</option>
+            <option value="down">Round Down</option>
+          </select>
+          <p className="mt-1 text-xs text-gray-500">
+            Whether to round prices up or down to the nearest increment
+          </p>
+        </div>
+
+        <div>
+          <label htmlFor="price_rounding_increment" className="block text-sm font-medium text-gray-700 mb-2">
+            Price Rounding Increment *
+          </label>
+          <select
+            id="price_rounding_increment"
+            name="price_rounding_increment"
+            value={formData.price_rounding_increment}
+            onChange={handleInputChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="0.05">$0.05 (Nickel)</option>
+            <option value="0.10">$0.10 (Dime)</option>
+            <option value="0.25">$0.25 (Quarter)</option>
+            <option value="0.50">$0.50 (Half Dollar)</option>
+          </select>
+          <p className="mt-1 text-xs text-gray-500">
+            Round final prices to the nearest increment
+          </p>
+        </div>
+      </div>
+
       <div className="bg-gray-50 p-4 rounded-lg border">
         <h4 className="text-sm font-medium text-gray-900 mb-2">Price Calculation Example</h4>
         <p className="text-sm text-gray-600 mb-2">
@@ -508,8 +622,12 @@ export default function CompanySettingsPage() {
           <div>• Commission (15%): +$0.30</div>
           <div>• Processing Fee (2.90% of commission): +$0.01</div>
           <div>• Sales Tax (8.25% of commission): +$0.02</div>
-          <div className="font-medium">• Final Price: $2.33 (rounded up to nearest quarter)</div>
+          <div>• Subtotal: $2.33</div>
+          <div className="font-medium">• Final Price: $2.50 (rounded up to nearest quarter)</div>
         </div>
+        <p className="text-xs text-gray-500 mt-2">
+          The rounding settings help create clean, professional pricing for your vending machines.
+        </p>
       </div>
     </div>
   )

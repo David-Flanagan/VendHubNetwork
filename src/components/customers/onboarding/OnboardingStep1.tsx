@@ -63,17 +63,19 @@ export default function OnboardingStep1({ companyId, templateId, onNext }: Onboa
       setCompany(companyData)
       console.log('Company loaded:', companyData)
 
-      // Load machine templates
+      // Load machine templates using new schema - company_machine_templates now contain all data
       const { data: templateData, error: templateError } = await supabase
         .from('company_machine_templates')
         .select(`
-          machine_template:machine_templates (
+          id,
+          name,
+          category_id,
+          image_url,
+          dimensions,
+          slot_count,
+          machine_category:machine_categories (
             id,
-            name,
-            category_id,
-            image_url,
-            dimensions,
-            slot_count
+            name
           )
         `)
         .eq('company_id', companyId)
@@ -87,58 +89,23 @@ export default function OnboardingStep1({ companyId, templateId, onNext }: Onboa
 
       console.log('Raw template data:', templateData)
 
-      // Get category names for the templates
-      const templateIds = (templateData || []).map((item: any) => item.machine_template?.id).filter(Boolean)
-      
-      if (templateIds.length > 0) {
-        const { data: categoryData, error: categoryError } = await supabase
-          .from('machine_templates')
-          .select(`
-            id,
-            machine_category:machine_categories (
-              id,
-              name
-            )
-          `)
-          .in('id', templateIds)
+      // Transform the data to match our interface
+      const templates: MachineTemplate[] = (templateData || []).map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        category: item.machine_category?.name || 'Unknown',
+        category_id: item.category_id,
+        image_url: item.image_url,
+        dimensions: item.dimensions || 'N/A',
+        slot_count: item.slot_count || 0
+      }))
 
-        if (categoryError) {
-          console.error('Error loading categories:', categoryError)
-        } else {
-          console.log('Category data:', categoryData)
-        }
+      console.log('Processed templates:', templates)
+      setMachineTemplates(templates)
 
-        const categoryMap = new Map()
-        categoryData?.forEach((item: any) => {
-          if (item.machine_category) {
-            categoryMap.set(item.id, item.machine_category.name)
-          }
-        })
-
-        const templates: MachineTemplate[] = (templateData || []).map((item: any) => {
-          const template = item.machine_template
-          if (!template) return null
-          
-          return {
-            id: template.id,
-            name: template.name,
-            category: categoryMap.get(template.id) || 'Unknown',
-            category_id: template.category_id,
-            image_url: template.image_url,
-            dimensions: template.dimensions || 'N/A',
-            slot_count: template.slot_count || 0
-          }
-        }).filter(Boolean) as MachineTemplate[]
-
-        console.log('Processed templates:', templates)
-        setMachineTemplates(templates)
-
-        // If templateId is provided, select it
-        if (templateId && templates.some(t => t.id === templateId)) {
-          setSelectedTemplate(templateId)
-        }
-      } else {
-        setMachineTemplates([])
+      // If templateId is provided, select it
+      if (templateId && templates.some(t => t.id === templateId)) {
+        setSelectedTemplate(templateId)
       }
     } catch (error) {
       console.error('Error loading data:', error)
@@ -226,6 +193,7 @@ export default function OnboardingStep1({ companyId, templateId, onNext }: Onboa
                 selected={selectedTemplate === template.id}
                 onClick={() => handleTemplateSelect(template.id)}
                 showDetails={true}
+                showTechnicalDetails={false}
               />
             ))}
           </div>
@@ -248,7 +216,7 @@ export default function OnboardingStep1({ companyId, templateId, onNext }: Onboa
           </svg>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">No Machine Templates Available</h3>
           <p className="text-gray-600">
-            This company doesn't have any machine templates available at the moment.
+            This operator doesn't have any active machine templates available for onboarding.
           </p>
         </div>
       )}

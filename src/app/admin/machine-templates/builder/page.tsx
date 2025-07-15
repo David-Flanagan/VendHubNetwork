@@ -62,7 +62,7 @@ export default function MachineTemplateBuilder() {
   const { loading: authLoading, isAdmin, user } = useAuth()
   const { showToast } = useToast()
   const router = useRouter()
-  
+
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [machineCategories, setMachineCategories] = useState<MachineCategory[]>([])
@@ -292,9 +292,9 @@ export default function MachineTemplateBuilder() {
         })
         .select()
         .single()
-
+      
       if (error) throw error
-
+      
       showToast('Machine template created successfully!', 'success')
       router.push('/admin/machine-templates')
     } catch (error: any) {
@@ -357,12 +357,12 @@ export default function MachineTemplateBuilder() {
           <div className="space-y-6">
             <h2 className="text-xl font-semibold text-gray-900">Basic Machine Information</h2>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                 Machine Name *
-              </label>
-              <input
-                type="text"
+                </label>
+                <input
+                  type="text"
                 value={templateData.name}
                 onChange={(e) => updateTemplateData('name', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -377,29 +377,29 @@ export default function MachineTemplateBuilder() {
               <textarea
                 value={templateData.description}
                 onChange={(e) => updateTemplateData('description', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter machine description"
                 rows={3}
-              />
-            </div>
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Machine Category *
-              </label>
-              <select
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Machine Category *
+                </label>
+                <select
                 value={templateData.category_id}
                 onChange={(e) => updateTemplateData('category_id', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select a category</option>
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select a category</option>
                 {machineCategories.map(category => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -500,7 +500,7 @@ export default function MachineTemplateBuilder() {
 
                 {/* Slot Configuration */}
                 {row.slots.length > 0 && (
-                  <div className="space-y-4">
+            <div className="space-y-4">
                     <h5 className="font-medium text-gray-900">Slot Configuration</h5>
                     {row.slots.map((slot, slotIndex) => (
                       <div key={slotIndex} className="border border-gray-200 rounded-lg p-4">
@@ -607,11 +607,11 @@ export default function MachineTemplateBuilder() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Serial #
                 </label>
-                <input
+                    <input
                   type="text"
                   value={templateData.serial_number}
                   onChange={(e) => updateTemplateData('serial_number', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter serial number"
                 />
               </div>
@@ -657,12 +657,12 @@ export default function MachineTemplateBuilder() {
                   placeholder="Enter power consumption"
                 />
               </div>
-            </div>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                 Machine Description
-              </label>
+                </label>
               <textarea
                 value={templateData.technical_description}
                 onChange={(e) => updateTemplateData('technical_description', e.target.value)}
@@ -674,7 +674,7 @@ export default function MachineTemplateBuilder() {
 
             <div>
               <label className="flex items-center">
-                <input
+                        <input
                   type="checkbox"
                   checked={templateData.is_outdoor_rated}
                   onChange={(e) => updateTemplateData('is_outdoor_rated', e.target.checked)}
@@ -683,9 +683,9 @@ export default function MachineTemplateBuilder() {
                 <span className="ml-2 text-sm font-medium text-gray-700">
                   Outdoor Rated
                 </span>
-              </label>
+                      </label>
             </div>
-          </div>
+                    </div>
         )}
 
         {currentStep === 4 && (
@@ -703,12 +703,12 @@ export default function MachineTemplateBuilder() {
                     <span className="font-medium">Category:</span> {
                       machineCategories.find(c => c.id === templateData.category_id)?.name
                     }
-                  </div>
+                </div>
                   <div>
                     <span className="font-medium">Description:</span> {templateData.description || 'None'}
-                  </div>
-                </div>
               </div>
+            </div>
+          </div>
 
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Slot Configuration</h3>
@@ -721,8 +721,8 @@ export default function MachineTemplateBuilder() {
                       templateData.slot_configuration.rows.reduce((total, row) => total + row.slots.length, 0)
                     }
                   </div>
-                </div>
-              </div>
+          </div>
+        </div>
             </div>
 
             {templateData.slot_configuration.rows.length > 0 && (
@@ -742,11 +742,11 @@ export default function MachineTemplateBuilder() {
                             {slot.slot_id}
                           </div>
                         ))}
-                      </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
+            </div>
             )}
 
             {(templateData.model_number || templateData.serial_number || templateData.dimensions.length) && (
@@ -775,7 +775,7 @@ export default function MachineTemplateBuilder() {
                 </div>
               </div>
             )}
-          </div>
+            </div>
         )}
 
         {/* Navigation Buttons */}

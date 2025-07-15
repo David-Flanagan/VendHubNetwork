@@ -71,13 +71,10 @@ export default function BrowseOperatorsPage() {
         .from('company_machine_templates')
         .select(`
           id,
-          custom_name,
+          name,
           company_id,
-          machine_template:machine_templates(
-            id,
-            name,
-            slot_count
-          )
+          slot_count,
+          is_active
         `)
         .in('company_id', companyIds)
         .eq('is_active', true)
@@ -88,6 +85,8 @@ export default function BrowseOperatorsPage() {
         return
       }
 
+      console.log('Loaded company templates:', templates)
+
       // Group templates by company_id
       const templatesByCompany: {[key: string]: any[]} = {}
       templates?.forEach(template => {
@@ -96,11 +95,12 @@ export default function BrowseOperatorsPage() {
         }
         templatesByCompany[template.company_id].push({
           id: template.id,
-          name: template.custom_name || template.machine_template.name,
-          slot_count: template.machine_template.slot_count
+          name: template.name,
+          slot_count: template.slot_count
         })
       })
 
+      console.log('Templates by company:', templatesByCompany)
       setCompanyTemplates(templatesByCompany)
     } catch (error) {
       console.error('Error loading company templates:', error)

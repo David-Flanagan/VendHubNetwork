@@ -17,13 +17,15 @@ interface MachineTemplateCardProps {
   onClick?: () => void
   selected?: boolean
   showDetails?: boolean
+  showTechnicalDetails?: boolean
 }
 
 export default function MachineTemplateCard({ 
   template, 
   onClick, 
   selected = false,
-  showDetails = false 
+  showDetails = false,
+  showTechnicalDetails = true
 }: MachineTemplateCardProps) {
   return (
     <div
@@ -65,7 +67,7 @@ export default function MachineTemplateCard({
           {template.category}
         </span>
         
-        {showDetails && (
+        {showDetails && showTechnicalDetails && (
           <div className="w-full space-y-2 text-sm text-gray-600">
             <div className="flex justify-between">
               <span>Slots:</span>

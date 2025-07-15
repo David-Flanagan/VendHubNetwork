@@ -9,7 +9,7 @@ import OnboardingStep1 from '@/components/customers/onboarding/OnboardingStep1'
 import OnboardingStep2 from '@/components/customers/onboarding/OnboardingStep2'
 import OnboardingStep3 from '@/components/customers/onboarding/OnboardingStep3'
 import OnboardingStep4 from '@/components/customers/onboarding/OnboardingStep4'
-import OnboardingStep5 from '@/components/customers/onboarding/OnboardingStep5'
+
 
 export default function CustomerOnboarding() {
   const router = useRouter()
@@ -33,7 +33,6 @@ export default function CustomerOnboarding() {
     point_of_contact_position: '',
     point_of_contact_email: '',
     point_of_contact_phone: '',
-    default_commission_rate: 0,
     processing_fee_percentage: 0,
     sales_tax_percentage: 0
   })
@@ -90,7 +89,7 @@ export default function CustomerOnboarding() {
 
   // Handle step navigation
   const handleNextStep = () => {
-    if (currentStep < 5) {
+    if (currentStep < 4) {
       setCurrentStep(currentStep + 1)
     }
   }
@@ -107,28 +106,12 @@ export default function CustomerOnboarding() {
       console.log('Template selected in Step 1:', selectedTemplateId)
       console.log('Company ID:', companyId)
       
-      // Find the company_machine_template record that links this company to the selected machine template
-      const { data: companyTemplate, error } = await supabase
-        .from('company_machine_templates')
-        .select('id')
-        .eq('company_id', companyId)
-        .eq('machine_template_id', selectedTemplateId)
-        .eq('is_active', true)
-        .single()
-
-      console.log('Company template lookup result:', companyTemplate)
-      console.log('Company template lookup error:', error)
-
-      if (error) {
-        console.error('Error finding company machine template:', error)
-        showToast('Error processing template selection', 'error')
-        return
-      }
-
-      console.log('Setting company_machine_template_id to:', companyTemplate.id)
+      // In the new schema, the selectedTemplateId IS the company_machine_template_id
+      // since company_machine_templates now contain the actual template data
+      console.log('Setting company_machine_template_id to:', selectedTemplateId)
       setOnboardingData(prev => ({
         ...prev,
-        company_machine_template_id: companyTemplate.id
+        company_machine_template_id: selectedTemplateId
       }))
       handleNextStep()
     } catch (error) {
@@ -149,11 +132,64 @@ export default function CustomerOnboarding() {
     setSaving(true)
     try {
       console.log('Submitting onboarding data:', onboardingData)
+      console.log('User ID:', user.id)
+      console.log('Company ID:', onboardingData.company_id)
+      console.log('Template ID:', onboardingData.company_machine_template_id)
+
+      // Create slot configuration JSON with all product data
+      let slotConfiguration: any = { rows: [] };
+      
+      if (onboardingData.products && onboardingData.products.length > 0) {
+        // Group products by row
+        const productsByRow: { [row: string]: any[] } = {}
+        onboardingData.products.forEach((product: any) => {
+          if (!productsByRow[product.row_number]) {
+            productsByRow[product.row_number] = []
+          }
+          productsByRow[product.row_number].push(product)
+        })
+
+        // Create slot configuration structure
+        slotConfiguration = {
+          rows: Object.keys(productsByRow).sort((a, b) => parseInt(a) - parseInt(b)).map(rowNum => ({
+            row_number: parseInt(rowNum),
+            slots: productsByRow[rowNum]
+              .sort((a: any, b: any) => a.slot_number - b.slot_number)
+              .map((product: any) => ({
+                slot_number: product.slot_number,
+                alias: product.alias,
+                mdb_code: product.mdb_code,
+                product_name: product.product_name,
+                brand_name: product.brand_name,
+                description: product.description,
+                image_url: product.image_url,
+                base_price: product.base_price ?? 0,
+                commission_rate: product.commission_rate ?? 0,
+                commission_amount: product.commission_amount ?? 0,
+                final_price: product.final_price ?? 0,
+                processing_fee_amount: product.processing_fee_amount ?? 0,
+                sales_tax_amount: product.sales_tax_amount ?? 0,
+                rounding_difference: product.rounding_difference ?? 0,
+                company_product_id: product.company_product_id,
+                product_type_id: product.product_type_id,
+                // Add pricing settings at the slot level
+                processing_fee_percentage: onboardingData.processing_fee_percentage || 0,
+                sales_tax_percentage: onboardingData.sales_tax_percentage || 0
+              }))
+          }))
+        }
+      }
 
       // Create customer machine record
       const machinePayload = {
         customer_id: user.id,
         company_id: onboardingData.company_id,
+        company_machine_template_id: onboardingData.company_machine_template_id,
+        machine_name: 'Customer Machine', // We'll get this from the template
+        machine_image_url: null, // We'll get this from the template
+        machine_dimensions: null, // We'll get this from the template
+        slot_count: onboardingData.products?.length || 0,
+        slot_configuration: slotConfiguration, // Include slot configuration in initial insert
         host_business_name: onboardingData.host_business_name,
         machine_placement_area: onboardingData.machine_placement_area,
         host_address: onboardingData.host_address,
@@ -163,12 +199,9 @@ export default function CustomerOnboarding() {
         point_of_contact_position: onboardingData.point_of_contact_position,
         point_of_contact_email: onboardingData.point_of_contact_email,
         point_of_contact_phone: onboardingData.point_of_contact_phone,
-        default_commission_rate: onboardingData.default_commission_rate,
-        processing_fee_percentage: onboardingData.processing_fee_percentage,
-        sales_tax_percentage: onboardingData.sales_tax_percentage,
         approval_status: 'pending',
         onboarding_status: 'completed',
-        current_step: 5
+        current_step: 4
       };
       console.log('Machine payload:', machinePayload);
       const { data: machineData, error: machineError } = await supabase
@@ -177,37 +210,12 @@ export default function CustomerOnboarding() {
         .select()
         .single()
 
+      console.log('Machine insert result:', { machineData, machineError })
+
       if (machineError) {
         console.error('Error creating customer machine:', machineError)
         console.error('Supabase error details:', machineError.details || machineError.message || machineError)
         throw machineError
-      }
-
-      // Create product records if any
-      if (onboardingData.products && onboardingData.products.length > 0) {
-        const productRecords = onboardingData.products.map((product: any) => ({
-          customer_machine_id: machineData.id,
-          row_number: product.row_number,
-          slot_number: product.slot_number,
-          product_type_id: product.product_type_id,
-          company_product_id: product.company_product_id,
-          base_price: product.base_price ?? 0,
-          commission_rate: product.commission_rate ?? 0,
-          final_price: product.final_price ?? 0,
-          commission_amount: product.commission_amount ?? 0,
-          processing_fee_amount: product.processing_fee_amount ?? product.processing_fee ?? 0,
-          sales_tax_amount: product.sales_tax_amount ?? product.sales_tax ?? 0
-        }))
-        console.log('Product records payload:', productRecords)
-        const { error: productsError } = await supabase
-          .from('customer_machine_products')
-          .insert(productRecords)
-
-        if (productsError) {
-          console.error('Error creating product records:', productsError)
-          console.error('Supabase error details:', productsError.details || productsError.message || productsError)
-          throw productsError
-        }
       }
 
       showToast('Onboarding completed successfully! Your machine is pending approval.', 'success')
@@ -266,13 +274,13 @@ export default function CustomerOnboarding() {
         {/* Progress Bar */}
         <div className="mb-8">
           <div className="flex justify-between text-sm text-gray-600 mb-2">
-            <span>Step {currentStep} of 5</span>
-            <span>{Math.round((currentStep / 5) * 100)}% Complete</span>
+            <span>Step {currentStep} of 4</span>
+            <span>{Math.round((currentStep / 4) * 100)}% Complete</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div 
               className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(currentStep / 5) * 100}%` }}
+              style={{ width: `${(currentStep / 4) * 100}%` }}
             ></div>
           </div>
         </div>
@@ -304,14 +312,6 @@ export default function CustomerOnboarding() {
           )}
           {currentStep === 4 && (
             <OnboardingStep4
-              data={onboardingData}
-              onUpdate={handleDataUpdate}
-              onNext={handleNextStep}
-              onPrev={handlePrevStep}
-            />
-          )}
-          {currentStep === 5 && (
-            <OnboardingStep5
               data={onboardingData}
               onUpdate={handleDataUpdate}
               onSubmit={handleSubmit}

@@ -104,8 +104,7 @@ export default function CompanyMachineTemplatesPage() {
             image_url,
             dimensions,
             category_id,
-            slot_count:machine_template_slots(count),
-            created_by_company:companies(name)
+            slot_count
           )
         `)
         .eq('company_id', userData.company_id)
@@ -144,8 +143,8 @@ export default function CompanyMachineTemplatesPage() {
             id: item.machine_template.category_id,
             name: categoryMap.get(item.machine_template.category_id) || 'Unknown'
           },
-          slot_count: item.machine_template.slot_count?.[0]?.count || 0,
-          created_by_company: item.machine_template.created_by_company?.[0] || null
+          slot_count: item.machine_template.slot_count || 0,
+          created_by_company: null
         }
       }))
 

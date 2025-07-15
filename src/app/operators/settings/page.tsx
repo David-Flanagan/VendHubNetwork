@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import RouteGuard from '@/components/auth/RouteGuard'
 import ImageUpload from '@/components/ImageUpload'
 
-type SettingsSection = 'company-info' | 'business-credentials' | 'location-service' | 'notifications' | 'billing' | 'privacy' | 'integrations'
+type SettingsSection = 'company-info' | 'business-credentials' | 'location-service' | 'notifications' | 'billing' | 'privacy' | 'integrations' | 'commission-settings'
 
 export default function CompanySettingsPage() {
   const { user } = useAuth()
@@ -35,7 +35,11 @@ export default function CompanySettingsPage() {
     // Location & Service Area
     map_enabled: false,
     latitude: '',
-    longitude: ''
+    longitude: '',
+    
+    // Commission Settings
+    processing_fee_percentage: '',
+    sales_tax_percentage: ''
   })
 
   useEffect(() => {
@@ -75,7 +79,11 @@ export default function CompanySettingsPage() {
           // Location & Service Area
           map_enabled: companyData.map_enabled || false,
           latitude: companyData.latitude?.toString() || '',
-          longitude: companyData.longitude?.toString() || ''
+          longitude: companyData.longitude?.toString() || '',
+          
+          // Commission Settings
+          processing_fee_percentage: companyData.processing_fee_percentage?.toString() || '',
+          sales_tax_percentage: companyData.sales_tax_percentage?.toString() || ''
         })
       } else {
         console.error('Error fetching company data:', companyError)
@@ -115,7 +123,11 @@ export default function CompanySettingsPage() {
         // Location & Service Area
         map_enabled: formData.map_enabled,
         latitude: formData.latitude ? parseFloat(formData.latitude) : null,
-        longitude: formData.longitude ? parseFloat(formData.longitude) : null
+        longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+        
+        // Commission Settings
+        processing_fee_percentage: formData.processing_fee_percentage ? parseFloat(formData.processing_fee_percentage) : null,
+        sales_tax_percentage: formData.sales_tax_percentage ? parseFloat(formData.sales_tax_percentage) : null
       }
 
       const { error } = await supabase
@@ -201,6 +213,12 @@ export default function CompanySettingsPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
         )
+      case 'commission-settings':
+        return (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+          </svg>
+        )
     }
   }
 
@@ -213,6 +231,7 @@ export default function CompanySettingsPage() {
       case 'billing': return 'Billing & Payment'
       case 'privacy': return 'Privacy & Visibility'
       case 'integrations': return 'API Keys & Integrations'
+      case 'commission-settings': return 'Commission Settings'
     }
   }
 
@@ -415,6 +434,86 @@ export default function CompanySettingsPage() {
     </div>
   )
 
+  const renderCommissionSettingsSection = () => (
+    <div className="space-y-6">
+      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+        <h4 className="text-sm font-medium text-blue-900 mb-2">Commission Settings</h4>
+        <p className="text-sm text-blue-700">
+          These settings are used to calculate final product prices during customer onboarding. 
+          The processing fee and sales tax percentages will be applied to commission amounts.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label htmlFor="processing_fee_percentage" className="block text-sm font-medium text-gray-700 mb-2">
+            Processing Fee Percentage *
+          </label>
+          <div className="relative">
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              id="processing_fee_percentage"
+              name="processing_fee_percentage"
+              value={formData.processing_fee_percentage}
+              onChange={handleInputChange}
+              placeholder="2.90"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+              <span className="text-gray-500 text-sm">%</span>
+            </div>
+          </div>
+          <p className="mt-1 text-xs text-gray-500">
+            Processing fee percentage applied to commission amounts (e.g., 2.90 for 2.90%)
+          </p>
+        </div>
+
+        <div>
+          <label htmlFor="sales_tax_percentage" className="block text-sm font-medium text-gray-700 mb-2">
+            Sales Tax Percentage *
+          </label>
+          <div className="relative">
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              id="sales_tax_percentage"
+              name="sales_tax_percentage"
+              value={formData.sales_tax_percentage}
+              onChange={handleInputChange}
+              placeholder="8.25"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+              <span className="text-gray-500 text-sm">%</span>
+            </div>
+          </div>
+          <p className="mt-1 text-xs text-gray-500">
+            Sales tax percentage applied to commission amounts (e.g., 8.25 for 8.25%)
+          </p>
+        </div>
+      </div>
+
+      <div className="bg-gray-50 p-4 rounded-lg border">
+        <h4 className="text-sm font-medium text-gray-900 mb-2">Price Calculation Example</h4>
+        <p className="text-sm text-gray-600 mb-2">
+          For a product with a base price of $2.00 and 15% commission:
+        </p>
+        <div className="text-sm text-gray-600 space-y-1">
+          <div>• Base Price: $2.00</div>
+          <div>• Commission (15%): +$0.30</div>
+          <div>• Processing Fee (2.90% of commission): +$0.01</div>
+          <div>• Sales Tax (8.25% of commission): +$0.02</div>
+          <div className="font-medium">• Final Price: $2.33 (rounded up to nearest quarter)</div>
+        </div>
+      </div>
+    </div>
+  )
+
   const renderFutureSection = (section: SettingsSection) => (
     <div className="space-y-6">
       <div className="bg-gray-50 p-6 rounded-lg border">
@@ -476,6 +575,8 @@ export default function CompanySettingsPage() {
         return renderBusinessCredentialsSection()
       case 'location-service':
         return renderLocationServiceSection()
+      case 'commission-settings':
+        return renderCommissionSettingsSection()
       case 'notifications':
       case 'billing':
       case 'privacy':
@@ -528,6 +629,7 @@ export default function CompanySettingsPage() {
                       'company-info',
                       'business-credentials', 
                       'location-service',
+                      'commission-settings',
                       'notifications',
                       'billing',
                       'privacy',

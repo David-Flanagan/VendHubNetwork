@@ -23,6 +23,9 @@ export default function BrowseOperatorsPage() {
   const [nearbyCompanies, setNearbyCompanies] = useState<Company[]>([])
   const [locationLoading, setLocationLoading] = useState(false)
   const [showLocationResults, setShowLocationResults] = useState(false)
+  
+  // Machine templates for companies
+  const [companyTemplates, setCompanyTemplates] = useState<{[key: string]: any[]}>({})
 
   useEffect(() => {
     fetchOperators()
@@ -50,10 +53,57 @@ export default function BrowseOperatorsPage() {
 
       if (error) throw error
       setOperators(data || [])
+      
+      // Load machine templates for all companies
+      await loadCompanyTemplates(data || [])
     } catch (error) {
       console.error('Error fetching operators:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadCompanyTemplates = async (companies: Company[]) => {
+    try {
+      const companyIds = companies.map(c => c.id)
+      
+      const { data: templates, error } = await supabase
+        .from('company_machine_templates')
+        .select(`
+          id,
+          custom_name,
+          company_id,
+          machine_template:machine_templates(
+            id,
+            name,
+            slot_count
+          )
+        `)
+        .in('company_id', companyIds)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error loading company templates:', error)
+        return
+      }
+
+      // Group templates by company_id
+      const templatesByCompany: {[key: string]: any[]} = {}
+      templates?.forEach(template => {
+        if (!templatesByCompany[template.company_id]) {
+          templatesByCompany[template.company_id] = []
+        }
+        templatesByCompany[template.company_id].push({
+          id: template.id,
+          name: template.custom_name || template.machine_template.name,
+          slot_count: template.machine_template.slot_count
+        })
+      })
+
+      setCompanyTemplates(templatesByCompany)
+    } catch (error) {
+      console.error('Error loading company templates:', error)
     }
   }
 
@@ -481,18 +531,30 @@ export default function BrowseOperatorsPage() {
                                         </svg>
                                       </a>
                                       
-                                      <button
-                                        onClick={() => {
-                                          // TODO: Implement onboarding flow
-                                          showToast('Onboarding feature coming soon!', 'info')
-                                        }}
-                                        className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
-                                      >
-                                        Start Onboarding
-                                        <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                        </svg>
-                                      </button>
+                                      {companyTemplates[company.id] && companyTemplates[company.id].length > 0 ? (
+                                        <a
+                                          href={`/customers/onboarding?company_id=${company.id}&template_id=${companyTemplates[company.id][0].id}`}
+                                          className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
+                                        >
+                                          Start Onboarding
+                                          <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                          </svg>
+                                        </a>
+                                      ) : (
+                                        <button
+                                          onClick={() => {
+                                            showToast('No machine templates available for this operator yet', 'info')
+                                          }}
+                                          className="inline-flex items-center px-4 py-2 bg-gray-400 text-white text-sm font-medium rounded-md cursor-not-allowed"
+                                          disabled
+                                        >
+                                          No Templates
+                                          <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                          </svg>
+                                        </button>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -535,9 +597,8 @@ export default function BrowseOperatorsPage() {
           {filteredOperators.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredOperators.map((operator) => (
-                <a
+                <div
                   key={operator.id}
-                  href={`/${encodeURIComponent(operator.name)}`}
                   className="block bg-gray-50 rounded-lg p-6 hover:bg-gray-100 transition-colors border border-gray-200"
                 >
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">
@@ -553,7 +614,7 @@ export default function BrowseOperatorsPage() {
                       {operator.description}
                     </p>
                   )}
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-4">
                     <div className="text-sm text-gray-500">
                       {operator.contact_email && (
                         <div className="flex items-center mb-1">
@@ -572,11 +633,46 @@ export default function BrowseOperatorsPage() {
                         </div>
                       )}
                     </div>
-                    <div className="text-blue-600 font-medium">
-                      View Profile →
-                    </div>
                   </div>
-                </a>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex items-center space-x-3">
+                    <a
+                      href={`/${encodeURIComponent(operator.name)}`}
+                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      View Profile
+                      <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                    </a>
+                    
+                    {companyTemplates[operator.id] && companyTemplates[operator.id].length > 0 ? (
+                      <a
+                        href={`/customers/onboarding?company_id=${operator.id}&template_id=${companyTemplates[operator.id][0].id}`}
+                        className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
+                      >
+                        Start Onboarding
+                        <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          showToast('No machine templates available for this operator yet', 'info')
+                        }}
+                        className="inline-flex items-center px-4 py-2 bg-gray-400 text-white text-sm font-medium rounded-md cursor-not-allowed"
+                        disabled
+                      >
+                        No Templates
+                        <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
           ) : (

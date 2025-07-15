@@ -23,6 +23,9 @@ export default function Navigation() {
   if (isOperator) {
     navItems.push({ href: '/operators/dashboard', label: 'Dashboard' })
   }
+  if (user && user.role === 'customer') {
+    navItems.push({ href: '/customers/dashboard', label: 'My Machines' })
+  }
 
   const handleSignOut = async () => {
     try {
@@ -133,6 +136,15 @@ export default function Navigation() {
                         onClick={() => setIsDropdownOpen(false)}
                       >
                         Edit Profile
+                      </Link>
+                    )}
+                    {user && user.role === 'customer' && (
+                      <Link
+                        href="/customers/dashboard"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setIsDropdownOpen(false)}
+                      >
+                        My Machines
                       </Link>
                     )}
                     

@@ -135,6 +135,8 @@ export interface Company {
 
   map_enabled?: boolean
   incorporated_date?: string
+  processing_fee_percentage?: number
+  sales_tax_percentage?: number
   sections_config?: {
     [key: string]: {
       enabled: boolean
@@ -165,4 +167,107 @@ export interface MachineGalleryImage {
   is_active: boolean
   created_at: string
   updated_at: string
+}
+
+// Customer Onboarding & Machine Management
+export interface CustomerMachine {
+  id: string
+  customer_id: string
+  company_id: string
+  company_machine_template_id: string
+  
+  // Host Location Information
+  host_business_name: string
+  machine_placement_area: string
+  host_address: string
+  host_latitude?: number
+  host_longitude?: number
+  point_of_contact_name: string
+  point_of_contact_position: string
+  point_of_contact_email: string
+  point_of_contact_phone?: string
+  
+  // Commission Settings
+  default_commission_rate: number
+  processing_fee_percentage: number
+  sales_tax_percentage: number
+  
+  // Approval Process
+  approval_status: 'pending' | 'approved' | 'rejected'
+  nayax_machine_id?: string
+  approved_at?: string
+  approved_by?: string
+  rejection_reason?: string
+  
+  // Onboarding Status
+  onboarding_status: 'in_progress' | 'completed' | 'abandoned'
+  current_step: number
+  
+  // Timestamps
+  created_at: string
+  updated_at: string
+  completed_at?: string
+  
+  // Joined data (optional)
+  company?: {
+    id: string
+    name: string
+    logo_url?: string
+  }
+  machine_template?: {
+    id: string
+    name: string
+    description?: string
+  }
+}
+
+export interface CustomerMachineProduct {
+  id: string
+  customer_machine_id: string
+  
+  // Slot and Product Information
+  row_number: number
+  slot_number: number
+  product_type_id: string
+  company_product_id: string
+  
+  // Pricing Information
+  base_price: number
+  commission_rate: number
+  final_price: number
+  
+  // Calculations breakdown
+  commission_amount: number
+  processing_fee_amount: number
+  sales_tax_amount: number
+  
+  created_at: string
+}
+
+export interface CustomerMachineFormData {
+  // Step 1: Machine Selection
+  company_machine_template_id?: string
+  
+  // Step 2: Product Selection
+  products?: {
+    row_number: number
+    slot_number: number
+    product_type_id: string
+    company_product_id: string
+  }[]
+  
+  // Step 3: Commission Settings
+  default_commission_rate?: number
+  apply_to_all_products?: boolean
+  
+  // Step 4: Host Location
+  host_business_name?: string
+  machine_placement_area?: string
+  host_address?: string
+  host_latitude?: number
+  host_longitude?: number
+  point_of_contact_name?: string
+  point_of_contact_position?: string
+  point_of_contact_email?: string
+  point_of_contact_phone?: string
 } 

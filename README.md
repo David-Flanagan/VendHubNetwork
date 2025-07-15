@@ -13,8 +13,8 @@ VendHub Network connects host locations with vending machine operators, enabling
 - **Modular Widget System**: Easy to add new sections
 - **Service Area Drawing**: Advanced polygon-based mapping
 - **Machine Gallery**: Photo carousel with captions
-- **Product Catalog**: Comprehensive product management
-- **Machine Templates**: Organized machine type showcase
+- **Product Catalog**: Comprehensive product management with category filtering
+- **Machine Templates**: Organized machine type showcase with category filtering
 - **Company Settings**: Business credentials and operational settings
 
 ### 🔐 Authentication & Authorization
@@ -33,8 +33,10 @@ VendHub Network connects host locations with vending machine operators, enabling
 ### 📦 Product Management
 - **Global Product Catalog**: Admin-managed product database
 - **Company Catalogs**: Operators add products to their catalog
+- **Product Categories**: Hierarchical filtering system
 - **Product Types**: Categorized products (snacks, drinks, etc.)
 - **Dynamic Pricing**: Company-specific pricing
+- **Smart Filtering**: Only show categories and types with available products
 
 ### 🔍 Customer Discovery
 - **Browse Operators Page**: Location-based search with interactive map
@@ -42,6 +44,14 @@ VendHub Network connects host locations with vending machine operators, enabling
 - **Service Area Visualization**: See operator coverage areas
 - **Company Cards**: Rich operator information display
 - **Navigation Context**: Preserve search results when viewing profiles
+- **Current Location**: One-click location detection for users
+
+### 🛒 Enhanced Filtering System
+- **Product Category Filtering**: Hierarchical filtering with categories first, then types
+- **Machine Category Filtering**: Only show categories with available machines
+- **Search Integration**: Text search works across all filters
+- **Performance Optimized**: Uses `useMemo` to prevent infinite re-render loops
+- **Consistent UI**: Same filtering patterns across all sections
 
 ## 🚀 Getting Started
 
@@ -55,7 +65,7 @@ VendHub Network connects host locations with vending machine operators, enabling
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/David-Flanagan/VendHubNetwork.git
    cd vendhub-network
    ```
 
@@ -80,6 +90,7 @@ VendHub Network connects host locations with vending machine operators, enabling
    - `add-incorporated-date.sql` - Company business credentials
    - `remove-radius-service-areas.sql` - Clean up radius data
    - `setup-company-logos-bucket.sql` - Company logo storage setup (requires manual policy setup)
+   - `add-product-categories.sql` - Product category system
 
 5. **Start Development Server**
    ```bash
@@ -94,6 +105,7 @@ VendHub Network connects host locations with vending machine operators, enabling
 - **Styling**: Tailwind CSS
 - **State Management**: React Context
 - **Drag & Drop**: @dnd-kit
+- **Performance**: useMemo for optimized filtering
 
 ### Backend
 - **Database**: Supabase (PostgreSQL)
@@ -117,7 +129,8 @@ src/
 │   ├── profile/         # Profile section components
 │   ├── auth/           # Authentication components
 │   ├── operators/      # Operator-specific components
-│   └── maps/          # Map components
+│   ├── maps/          # Map components
+│   └── debug/         # Debug components
 ├── contexts/           # React contexts
 ├── lib/               # Utility functions
 └── types/             # TypeScript type definitions
@@ -128,9 +141,12 @@ src/
 ### Core Tables
 - `users` - User accounts and roles
 - `companies` - Company information, profile config, and business credentials
-- `global_products` - Admin-managed product catalog
+- `global_products` - Admin-managed product catalog with categories
 - `company_products` - Company-specific product catalogs
+- `product_categories` - Product category system
+- `product_types` - Product type system
 - `machine_templates` - Predefined machine types
+- `machine_categories` - Machine category system
 - `service_areas` - Company service coverage areas (polygon-only)
 - `machine_gallery` - Company machine photos
 
@@ -147,6 +163,19 @@ companies (
 ```sql
 service_areas (
   id, company_id, name, method, polygon_geometry,
+  created_at, updated_at
+)
+```
+
+### Product System
+```sql
+product_categories (
+  id, name, description, created_at
+)
+
+global_products (
+  id, brand_name, product_name, description,
+  product_type_id, product_category_id, image_url,
   created_at, updated_at
 )
 ```
@@ -183,14 +212,22 @@ Use `migrate-new-sections.sql` to automatically add missing sections to all exis
 - **GeoJSON Storage**: Efficient spatial data format
 - **Location Search**: Find operators within service areas
 
+### Filtering System
+- **Product Categories**: Hierarchical filtering (category → type)
+- **Machine Categories**: Only show categories with available machines
+- **Performance**: Memoized filtering to prevent re-render loops
+- **Search Integration**: Text search across all filters
+
 ### Code Standards
 - **TypeScript**: Strict typing throughout
 - **React Best Practices**: Functional components, hooks
 - **Error Handling**: Comprehensive error states
+- **Performance**: useMemo for expensive calculations
 - **Testing**: Manual testing of all features
 
 ## 📝 Documentation
 
+- `RECENT_FEATURES.md` - Latest features and updates
 - `CUSTOMIZABLE_PROFILE_SYSTEM.md` - Complete profile system documentation
 - `DEVELOPMENT_RULES.md` - Development guidelines
 - `SECTION_MIGRATION_CHECKLIST.md` - Widget addition procedures
@@ -218,6 +255,14 @@ Use `migrate-new-sections.sql` to automatically add missing sections to all exis
 - Distance-based sorting
 - Rich company cards with credentials
 - Seamless navigation between search and profiles
+- Current location detection
+
+### Product & Machine Filtering
+- Hierarchical filtering design
+- Smart button display (only relevant options)
+- Visual feedback for active states
+- Search integration across all filters
+- Performance optimized with memoization
 
 ### Image Management
 - Profile images (1200×400px, 3:1 ratio)
@@ -245,12 +290,25 @@ Use `migrate-new-sections.sql` to automatically add missing sections to all exis
 - Railway
 - DigitalOcean App Platform
 
+## 🐛 Recent Bug Fixes
+
+### Performance Issues
+- **Infinite Re-render Fix**: Resolved "Maximum update depth exceeded" error with `useMemo`
+- **TypeScript Errors**: Fixed interface conflicts and type mismatches
+- **Component Optimization**: Reduced unnecessary re-renders
+
+### Git Repository
+- **Repository Setup**: Properly configured Git repository structure
+- **Remote Configuration**: Connected to GitHub repository
+- **Code Backup**: All work safely stored on GitHub
+
 ## 🤝 Contributing
 
 1. Follow the development rules in `DEVELOPMENT_RULES.md`
-2. Always discuss changes before implementing
-3. Test thoroughly with existing and new companies
-4. Update documentation for any new features
+2. Test all features thoroughly
+3. Use TypeScript for all new code
+4. Follow the existing code patterns
+5. Update documentation for new features
 
 ## 📄 License
 
@@ -258,5 +316,6 @@ This project is proprietary software.
 
 ---
 
-**Last Updated**: January 2025
-**Status**: Production Ready
+**Version**: 2.1.0  
+**Last Updated**: January 2025  
+**Repository**: https://github.com/David-Flanagan/VendHubNetwork

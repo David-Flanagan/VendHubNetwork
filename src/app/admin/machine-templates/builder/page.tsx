@@ -221,20 +221,42 @@ export default function MachineTemplateBuilderPage() {
         imageUrl = urlData.publicUrl
       }
       
-      // Create machine template
+      // Calculate total slot count
+      const totalSlotCount = slots.length
+      
+      // Create machine template with only required fields first
+      const templateData: any = {
+        name: formData.name.trim(),
+        category_id: formData.categoryId,
+        slot_count: totalSlotCount
+      }
+      
+      // Add optional fields if they exist in the schema
+      if (formData.modelNumber.trim()) {
+        templateData.model_number = formData.modelNumber.trim()
+      }
+      if (formData.lengthInches) {
+        templateData.length_inches = parseInt(formData.lengthInches)
+      }
+      if (formData.widthInches) {
+        templateData.width_inches = parseInt(formData.widthInches)
+      }
+      if (formData.heightInches) {
+        templateData.height_inches = parseInt(formData.heightInches)
+      }
+      if (formData.isOutdoorRated !== undefined) {
+        templateData.is_outdoor_rated = formData.isOutdoorRated
+      }
+      if (formData.technicalDescription.trim()) {
+        templateData.technical_description = formData.technicalDescription.trim()
+      }
+      if (imageUrl) {
+        templateData.image_url = imageUrl
+      }
+      
       const { data: template, error: templateError } = await supabase
         .from('machine_templates')
-        .insert({
-          name: formData.name.trim(),
-          category_id: formData.categoryId,
-          model_number: formData.modelNumber.trim(),
-          length_inches: parseInt(formData.lengthInches),
-          width_inches: parseInt(formData.widthInches),
-          height_inches: parseInt(formData.heightInches),
-          is_outdoor_rated: formData.isOutdoorRated,
-          technical_description: formData.technicalDescription.trim() || null,
-          image_url: imageUrl
-        })
+        .insert(templateData)
         .select()
         .single()
       

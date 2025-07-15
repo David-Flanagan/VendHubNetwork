@@ -82,8 +82,7 @@ export default function GlobalMachineTemplatesPage() {
           dimensions,
           created_at,
           category_id,
-          slot_count:machine_template_slots(count),
-          created_by_company:companies(name)
+          slot_count
         `)
         .order('name')
 
@@ -124,10 +123,10 @@ export default function GlobalMachineTemplatesPage() {
           id: item.category_id,
           name: categoryMap.get(item.category_id) || 'Unknown'
         },
-        slot_count: item.slot_count?.[0]?.count || 0,
+        slot_count: item.slot_count || 0,
         is_in_company_catalog: companyTemplateIds.has(item.id),
-        created_by_company: item.created_by_company?.[0] || null,
-        can_delete: item.created_by_company?.[0]?.id === user?.company_id
+        created_by_company: null,
+        can_delete: false
       }))
 
       setMachineTemplates(transformedData)

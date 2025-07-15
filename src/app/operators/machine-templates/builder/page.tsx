@@ -24,6 +24,23 @@ interface Slot {
   slotNumber: number
   productTypeIds: string[]
   mdbCode: string
+  // Pre-built machine fields (optional)
+  productChoice?: string
+  commissionRate?: number
+  vendPrice?: number
+  processingFee?: number
+  salesTax?: number
+}
+
+interface CompanyProduct {
+  id: string
+  price: number
+  global_product: {
+    id: string
+    brand_name: string
+    product_name: string
+    product_type_id: string
+  }
 }
 
 export default function OperatorMachineTemplateBuilderPage() {
@@ -51,8 +68,10 @@ export default function OperatorMachineTemplateBuilderPage() {
   // Data loading state
   const [machineCategories, setMachineCategories] = useState<MachineCategory[]>([])
   const [productTypes, setProductTypes] = useState<ProductType[]>([])
+  const [companyProducts, setCompanyProducts] = useState<CompanyProduct[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [showPreBuiltSection, setShowPreBuiltSection] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !isOperator) {
@@ -66,16 +85,43 @@ export default function OperatorMachineTemplateBuilderPage() {
 
   const loadData = async () => {
     try {
-      const [categoriesResult, typesResult] = await Promise.all([
+      const [categoriesResult, typesResult, productsResult] = await Promise.all([
         supabase.from('machine_categories').select('*').order('name'),
-        supabase.from('product_types').select('*').order('name')
+        supabase.from('product_types').select('*').order('name'),
+        supabase.from('company_products')
+          .select(`
+            id,
+            price,
+            global_product:global_products(
+              id,
+              brand_name,
+              product_name,
+              product_type_id
+            )
+          `)
+          .eq('company_id', user?.company_id)
+          .eq('is_available', true)
       ])
 
       if (categoriesResult.error) throw categoriesResult.error
       if (typesResult.error) throw typesResult.error
+      if (productsResult.error) throw productsResult.error
 
       setMachineCategories(categoriesResult.data || [])
       setProductTypes(typesResult.data || [])
+      
+      // Transform company products data to match interface
+      const transformedProducts: CompanyProduct[] = (productsResult.data || []).map((product: any) => ({
+        id: product.id,
+        price: product.price,
+        global_product: {
+          id: product.global_product.id,
+          brand_name: product.global_product.brand_name,
+          product_name: product.global_product.product_name,
+          product_type_id: product.global_product.product_type_id
+        }
+      }))
+      setCompanyProducts(transformedProducts)
     } catch (error: any) {
       showToast('Failed to load data: ' + error.message, 'error')
     } finally {
@@ -154,6 +200,31 @@ export default function OperatorMachineTemplateBuilderPage() {
     }
   }
 
+  // Helper function to get products by type
+  const getProductsByType = (productTypeId: string) => {
+    return companyProducts.filter(p => p.global_product.product_type_id === productTypeId)
+  }
+
+  // Update slot with pre-built machine data
+  const updateSlotPreBuilt = (rowNumber: number, slotNumber: number, field: keyof Slot, value: any) => {
+    const newSlots = [...slots]
+    const slotIndex = newSlots.findIndex(s => s.rowNumber === rowNumber && s.slotNumber === slotNumber)
+    
+    if (slotIndex >= 0) {
+      newSlots[slotIndex] = { ...newSlots[slotIndex], [field]: value }
+    } else {
+      newSlots.push({
+        rowNumber,
+        slotNumber,
+        productTypeIds: [],
+        mdbCode: '',
+        [field]: value
+      })
+    }
+    
+    setSlots(newSlots)
+  }
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -222,58 +293,63 @@ export default function OperatorMachineTemplateBuilderPage() {
         imageUrl = urlData.publicUrl
       }
       
-      // Create machine template
+      // Calculate total slot count
+      const totalSlotCount = slots.length
+      
+      // Create slot configuration JSON
+      const slotConfiguration = slots.map(slot => ({
+        row: slot.rowNumber,
+        slot: slot.slotNumber,
+        product_type_id: slot.productTypeIds[0] || null, // Use first product type for now
+        mdb_code: slot.mdbCode,
+        product_choice: slot.productChoice || null,
+        commission_rate: slot.commissionRate || null,
+        vend_price: slot.vendPrice || null,
+        processing_fee: slot.processingFee || null,
+        sales_tax: slot.salesTax || null
+      }))
+
+      // Create machine template with slot configuration
+      const templateData: any = {
+        name: formData.name.trim(),
+        category_id: formData.categoryId,
+        slot_count: totalSlotCount,
+        slot_configuration: slotConfiguration
+      }
+      
+      // Add optional fields if they exist in the schema
+      if (formData.modelNumber.trim()) {
+        templateData.model_number = formData.modelNumber.trim()
+      }
+      if (formData.lengthInches) {
+        templateData.length_inches = parseInt(formData.lengthInches)
+      }
+      if (formData.widthInches) {
+        templateData.width_inches = parseInt(formData.widthInches)
+      }
+      if (formData.heightInches) {
+        templateData.height_inches = parseInt(formData.heightInches)
+      }
+      if (formData.isOutdoorRated !== undefined) {
+        templateData.is_outdoor_rated = formData.isOutdoorRated
+      }
+      if (formData.technicalDescription.trim()) {
+        templateData.technical_description = formData.technicalDescription.trim()
+      }
+      if (imageUrl) {
+        templateData.image_url = imageUrl
+      }
+      if (user?.company_id) {
+        templateData.created_by_company_id = user.company_id
+      }
+      
       const { data: template, error: templateError } = await supabase
         .from('machine_templates')
-        .insert({
-          name: formData.name.trim(),
-          category_id: formData.categoryId,
-          model_number: formData.modelNumber.trim(),
-          length_inches: parseInt(formData.lengthInches),
-          width_inches: parseInt(formData.widthInches),
-          height_inches: parseInt(formData.heightInches),
-          is_outdoor_rated: formData.isOutdoorRated,
-          technical_description: formData.technicalDescription.trim() || null,
-          image_url: imageUrl,
-          created_by_company: user?.company_id
-        })
+        .insert(templateData)
         .select()
         .single()
       
       if (templateError) throw templateError
-      
-      // Create slots and slot product types
-      if (slots.length > 0) {
-        for (const slot of slots) {
-          // Create the slot
-          const { data: slotData, error: slotError } = await supabase
-            .from('machine_template_slots')
-            .insert({
-              machine_template_id: template.id,
-              row_number: slot.rowNumber,
-              slot_number: slot.slotNumber,
-              mdb_code: slot.mdbCode.trim()
-            })
-            .select()
-            .single()
-          
-          if (slotError) throw slotError
-          
-          // Create slot product types
-          if (slot.productTypeIds.length > 0) {
-            const slotProductTypes = slot.productTypeIds.map(productTypeId => ({
-              machine_template_slot_id: slotData.id,
-              product_type_id: productTypeId
-            }))
-            
-            const { error: productTypesError } = await supabase
-              .from('machine_template_slot_product_types')
-              .insert(slotProductTypes)
-            
-            if (productTypesError) throw productTypesError
-          }
-        }
-      }
       
       showToast('Machine template created successfully!', 'success')
       router.push('/operators/global-machine-templates')
@@ -294,7 +370,7 @@ export default function OperatorMachineTemplateBuilderPage() {
   }
 
   return (
-    <RouteGuard allowedRoles={['operator']}>
+    <RouteGuard requiredRole="operator">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Machine Template Builder</h1>
@@ -602,6 +678,130 @@ export default function OperatorMachineTemplateBuilderPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Pre-built Machine Section */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Pre-built Machine Configuration</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowPreBuiltSection(!showPreBuiltSection)}
+                  className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                >
+                  {showPreBuiltSection ? 'Hide' : 'Show'} Pre-built Options
+                </button>
+              </div>
+              
+              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-blue-800 text-sm">
+                  <strong>Note:</strong> Leave this section blank unless making a pre-built machine (Selections/commission etc). 
+                  If you configure products and pricing here, customers will see these as pre-selected options during onboarding.
+                </p>
+              </div>
+
+              {showPreBuiltSection && (
+                <div className="space-y-4">
+                  {slots.map((slot, index) => {
+                    const availableProducts = getProductsByType(slot.productTypeIds[0] || '')
+                    const selectedProduct = companyProducts.find(p => p.id === slot.productChoice)
+                    
+                    return (
+                      <div key={index} className="border border-gray-200 rounded-md p-4">
+                        <h3 className="font-medium text-gray-900 mb-3">
+                          Slot {slot.rowNumber}-{slot.slotNumber}
+                        </h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Product Selection */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Pre-selected Product
+                            </label>
+                            <select
+                              value={slot.productChoice || ''}
+                              onChange={(e) => updateSlotPreBuilt(slot.rowNumber, slot.slotNumber, 'productChoice', e.target.value || null)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">No pre-selection</option>
+                              {availableProducts.map((product) => (
+                                <option key={product.id} value={product.id}>
+                                  {product.global_product.brand_name} - {product.global_product.product_name} (${product.price})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Commission Rate */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Default Commission Rate (%)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                              value={slot.commissionRate || ''}
+                              onChange={(e) => updateSlotPreBuilt(slot.rowNumber, slot.slotNumber, 'commissionRate', e.target.value ? parseFloat(e.target.value) : null)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="e.g., 15.0"
+                            />
+                          </div>
+
+                          {/* Vend Price */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Default Vend Price ($)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={slot.vendPrice || ''}
+                              onChange={(e) => updateSlotPreBuilt(slot.rowNumber, slot.slotNumber, 'vendPrice', e.target.value ? parseFloat(e.target.value) : null)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="e.g., 2.50"
+                            />
+                          </div>
+
+                          {/* Processing Fee */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Processing Fee ($)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={slot.processingFee || ''}
+                              onChange={(e) => updateSlotPreBuilt(slot.rowNumber, slot.slotNumber, 'processingFee', e.target.value ? parseFloat(e.target.value) : null)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="e.g., 0.25"
+                            />
+                          </div>
+
+                          {/* Sales Tax */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Sales Tax ($)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={slot.salesTax || ''}
+                              onChange={(e) => updateSlotPreBuilt(slot.rowNumber, slot.slotNumber, 'salesTax', e.target.value ? parseFloat(e.target.value) : null)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="e.g., 0.20"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="flex space-x-3">

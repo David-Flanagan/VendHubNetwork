@@ -77,7 +77,7 @@ export default function MachineTemplatesPage() {
           dimensions,
           created_at,
           category_id,
-          slot_count:machine_template_slots(count)
+          slot_count
         `)
         .order('name')
 
@@ -105,7 +105,7 @@ export default function MachineTemplatesPage() {
           id: item.category_id,
           name: categoryMap.get(item.category_id) || 'Unknown'
         },
-        slot_count: item.slot_count?.[0]?.count || 0
+        slot_count: item.slot_count || 0
       }))
       
       setMachineTemplates(transformedData)

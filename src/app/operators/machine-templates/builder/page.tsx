@@ -57,7 +57,7 @@ export default function OperatorMachineTemplateBuilderPage() {
 
   useEffect(() => {
     if (!authLoading && !isOperator) {
-      router.push('/operators/login')
+      router.push('/auth/operators/login')
       return
     }
     if (isOperator) {

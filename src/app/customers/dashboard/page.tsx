@@ -1,208 +1,116 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/contexts/AuthContext'
-import { useToast } from '@/contexts/ToastContext'
-import CustomerMachineCard from '@/components/customers/CustomerMachineCard'
-import { CustomerMachine } from '@/types'
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
+import Link from "next/link";
+
+interface MachineStats {
+  id: string;
+  approval_status: string;
+  onboarding_status: string;
+  created_at: string;
+}
 
 export default function CustomerDashboard() {
-  const { user, loading: authLoading } = useAuth()
-  const { showToast } = useToast()
-  const router = useRouter()
-  
-  const [machines, setMachines] = useState<CustomerMachine[]>([])
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'pending' | 'approved'>('pending')
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [machines, setMachines] = useState<MachineStats[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Redirect if not authenticated or not a customer
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'customer')) {
-      router.push('/customers/login')
-    }
-  }, [user, authLoading, router])
-
-  // Load customer machines
-  const loadCustomerMachines = async () => {
-    if (!user) return
-
-    try {
-      setLoading(true)
-      console.log('Loading machines for customer:', user.id)
-
+    const loadCustomerMachines = async () => {
+      if (!user) return;
+      setLoading(true);
       const { data, error } = await supabase
-        .from('customer_machines')
-        .select(`
-          *,
-          company:companies(
-            id,
-            name,
-            logo_url
-          )
-        `)
-        .eq('customer_id', user.id)
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('Error loading customer machines:', error)
-        throw error
-      }
-
-      console.log('Customer machines loaded:', data)
-      setMachines(data || [])
-    } catch (error) {
-      console.error('Error loading machines:', error)
-      showToast('Error loading your machines', 'error')
-    } finally {
-      setLoading(false)
+        .from("customer_machines")
+        .select("id, approval_status, onboarding_status, created_at")
+        .eq("customer_id", user.id);
+      if (!error) setMachines(data || []);
+      setLoading(false);
+    };
+    if (user && user.role === "customer") {
+      loadCustomerMachines();
     }
-  }
-
-  // Load machines when user is available
-  useEffect(() => {
-    if (user && user.role === 'customer') {
-      loadCustomerMachines()
-    }
-  }, [user])
-
-        // Filter machines based on active tab
-      const pendingMachines = machines.filter(machine => 
-        machine.approval_status === 'pending' || 
-        machine.onboarding_status === 'in_progress'
-      )
-      
-      const approvedMachines = machines.filter(machine => 
-        machine.approval_status === 'approved'
-      )
+  }, [user]);
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div>Loading...</div>
       </div>
-    )
+    );
+  }
+  if (!user || user.role !== "customer") {
+    return null;
   }
 
-  if (!user || user.role !== 'customer') {
-    return null // Will redirect
-  }
+  const totalMachines = machines.length;
+  const activeMachines = machines.filter(m => m.approval_status === "approved").length;
+  const pendingMachines = machines.filter(m => m.approval_status === "pending").length;
+  const recentMachines = machines.filter(m => {
+    const createdAt = new Date(m.created_at);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    return createdAt > thirtyDaysAgo;
+  }).length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">My Machines</h1>
-          <p className="mt-2 text-gray-600">
-            Track your vending machine onboarding and manage your active machines
-          </p>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Welcome back!</h1>
+        <p className="mt-2 text-gray-600">
+          Here's an overview of your vending machine operations
+        </p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <p className="text-sm font-medium text-gray-500">Total Machines</p>
+          <p className="text-2xl font-bold text-gray-900">{loading ? "..." : totalMachines}</p>
         </div>
-
-        {/* Tab Navigation */}
-        <div className="mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
-              <button
-                onClick={() => setActiveTab('pending')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'pending'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Pending ({pendingMachines.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('approved')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'approved'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Active ({approvedMachines.length})
-              </button>
-            </nav>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <p className="text-sm font-medium text-gray-500">Active Machines</p>
+          <p className="text-2xl font-bold text-gray-900">{loading ? "..." : activeMachines}</p>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <p className="text-sm font-medium text-gray-500">Pending Approval</p>
+          <p className="text-2xl font-bold text-gray-900">{loading ? "..." : pendingMachines}</p>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <p className="text-sm font-medium text-gray-500">Recent (30 days)</p>
+          <p className="text-2xl font-bold text-gray-900">{loading ? "..." : recentMachines}</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+          <div className="space-y-3">
+            <Link href="/customers/dashboard/machines" className="block text-blue-600 hover:underline">
+              View My Machines
+            </Link>
+            <Link href="/browse-operators" className="block text-blue-600 hover:underline">
+              Browse Operators
+            </Link>
           </div>
         </div>
-
-        {/* Content */}
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading your machines...</p>
-          </div>
-        ) : (
-          <div>
-            {activeTab === 'pending' ? (
-              <div>
-                {pendingMachines.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="mx-auto h-12 w-12 text-gray-400">
-                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No pending machines</h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      You don't have any machines in the onboarding process.
-                    </p>
-                    <div className="mt-6">
-                      <button
-                        onClick={() => router.push('/browse-operators')}
-                        className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      >
-                        Browse Operators
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid gap-6 lg:grid-cols-2">
-                    {pendingMachines.map((machine) => (
-                      <CustomerMachineCard
-                        key={machine.id}
-                        machine={machine}
-                        onUpdate={loadCustomerMachines}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div>
-                {approvedMachines.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="mx-auto h-12 w-12 text-gray-400">
-                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No active machines</h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      You don't have any approved machines yet.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid gap-6 lg:grid-cols-2">
-                    {approvedMachines.map((machine) => (
-                      <CustomerMachineCard
-                        key={machine.id}
-                        machine={machine}
-                        onUpdate={loadCustomerMachines}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+          {loading ? (
+            <div>Loading...</div>
+          ) : machines.length === 0 ? (
+            <div>No machines yet</div>
+          ) : (
+            <ul>
+              {machines.slice(0, 3).map(machine => (
+                <li key={machine.id} className="mb-2">
+                  Machine #{machine.id.slice(0, 8)} - {machine.approval_status}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
-  )
+  );
 } 

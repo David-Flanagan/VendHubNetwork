@@ -269,7 +269,7 @@ export default function CompanyCatalogPage() {
   }
 
   return (
-    <RouteGuard requiredRole="operator" redirectTo="/operators/login">
+    <RouteGuard requiredRole="operator" redirectTo="/auth/operators/login">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <div className="flex justify-between items-center">
@@ -448,7 +448,11 @@ export default function CompanyCatalogPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-500">
-                            {new Date(product.added_at).toLocaleDateString()}
+                            {new Date(product.added_at).toLocaleDateString('en-US', {
+  month: '2-digit',
+  day: '2-digit',
+  year: 'numeric'
+})}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

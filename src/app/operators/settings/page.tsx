@@ -8,14 +8,14 @@ import { useAuth } from '@/contexts/AuthContext'
 import RouteGuard from '@/components/auth/RouteGuard'
 import ImageUpload from '@/components/ImageUpload'
 
-type SettingsSection = 'company-info' | 'business-credentials' | 'location-service' | 'notifications' | 'billing' | 'privacy' | 'integrations' | 'commission-settings'
+type SettingsSection = 'basic-info' | 'contact-info' | 'primary-contact' | 'business-credentials' | 'location-service' | 'notifications' | 'billing' | 'privacy' | 'integrations' | 'commission-settings'
 
 export default function CompanySettingsPage() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [company, setCompany] = useState<Company | null>(null)
-  const [activeSection, setActiveSection] = useState<SettingsSection>('company-info')
+  const [activeSection, setActiveSection] = useState<SettingsSection>('basic-info')
   const { showToast } = useToast()
 
   // Form state
@@ -190,10 +190,23 @@ export default function CompanySettingsPage() {
 
   const getSectionIcon = (section: SettingsSection) => {
     switch (section) {
-      case 'company-info':
+      case 'basic-info':
         return (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+        )
+      case 'contact-info':
+        return (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        )
+      case 'primary-contact':
+        return (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
         )
       case 'business-credentials':
@@ -245,7 +258,9 @@ export default function CompanySettingsPage() {
 
   const getSectionTitle = (section: SettingsSection) => {
     switch (section) {
-      case 'company-info': return 'Company Information'
+      case 'basic-info': return 'Basic Information'
+      case 'contact-info': return 'Contact Information'
+      case 'primary-contact': return 'Primary Contact Information'
       case 'business-credentials': return 'Business Credentials'
       case 'location-service': return 'Location & Service Area'
       case 'notifications': return 'Notification Preferences'
@@ -256,7 +271,7 @@ export default function CompanySettingsPage() {
     }
   }
 
-  const renderCompanyInfoSection = () => (
+  const renderBasicInfoSection = () => (
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
@@ -306,9 +321,16 @@ export default function CompanySettingsPage() {
           placeholder="Describe your company and services..."
         />
       </div>
+    </div>
+  )
 
+  const renderContactInfoSection = () => (
+    <div className="space-y-6">
       <div>
         <h3 className="text-lg font-medium text-gray-900 mb-4">Contact Information</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          This information will be displayed to customers during the onboarding process and on your company profile.
+        </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label htmlFor="contact_email" className="block text-sm font-medium text-gray-700 mb-2">
@@ -354,7 +376,11 @@ export default function CompanySettingsPage() {
           />
         </div>
       </div>
+    </div>
+  )
 
+  const renderPrimaryContactSection = () => (
+    <div className="space-y-6">
       <div>
         <h3 className="text-lg font-medium text-gray-900 mb-4">Primary Contact Information</h3>
         <p className="text-sm text-gray-600 mb-4">
@@ -687,8 +713,12 @@ export default function CompanySettingsPage() {
 
   const renderActiveSection = () => {
     switch (activeSection) {
-      case 'company-info':
-        return renderCompanyInfoSection()
+      case 'basic-info':
+        return renderBasicInfoSection()
+      case 'contact-info':
+        return renderContactInfoSection()
+      case 'primary-contact':
+        return renderPrimaryContactSection()
       case 'business-credentials':
         return renderBusinessCredentialsSection()
       case 'location-service':
@@ -701,13 +731,13 @@ export default function CompanySettingsPage() {
       case 'integrations':
         return renderFutureSection(activeSection)
       default:
-        return renderCompanyInfoSection()
+        return renderBasicInfoSection()
     }
   }
 
   if (loading) {
     return (
-      <RouteGuard requiredRole="operator" redirectTo="/operators/login">
+      <RouteGuard requiredRole="operator" redirectTo="/auth/operators/login">
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
@@ -716,7 +746,7 @@ export default function CompanySettingsPage() {
   }
 
   return (
-    <RouteGuard requiredRole="operator" redirectTo="/operators/login">
+    <RouteGuard requiredRole="operator" redirectTo="/auth/operators/login">
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <div className="bg-white shadow">
@@ -744,7 +774,9 @@ export default function CompanySettingsPage() {
                 <nav className="p-2">
                   <ul className="space-y-1">
                     {([
-                      'company-info',
+                      'basic-info',
+                      'contact-info',
+                      'primary-contact',
                       'business-credentials', 
                       'location-service',
                       'commission-settings',

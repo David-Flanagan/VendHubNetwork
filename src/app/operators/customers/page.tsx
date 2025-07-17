@@ -21,6 +21,7 @@ interface CustomerMachine {
   approval_status: 'pending' | 'approved' | 'rejected'
   nayax_machine_id: string | null
   referral_user_id: string | null
+  referral_commission_percent: number | null
   approved_at: string | null
   approved_by: string | null
   rejection_reason: string | null
@@ -38,8 +39,10 @@ interface CustomerMachineProduct {
   slot_number: number
   product_type_name: string
   product_name: string
+  brand_name: string
   base_price: number
   commission_rate: number
+  commission_amount: number
   final_price: number
   image_url?: string
 }
@@ -52,8 +55,10 @@ export default function OperatorCustomersPage() {
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [formData, setFormData] = useState<{
-    [key: string]: { nayaxMachineId: string; referralUserId: string }
+    [key: string]: { nayaxMachineId: string; referralUserId: string; referralCommissionPercent: string }
   }>({})
+  const [showSlotModal, setShowSlotModal] = useState(false)
+  const [selectedMachine, setSelectedMachine] = useState<CustomerMachine | null>(null)
 
   useEffect(() => {
     if (user?.company_id) {
@@ -105,88 +110,35 @@ export default function OperatorCustomersPage() {
             customerInfo = customers
           }
 
-          // Fetch products for this machine - simplified query (v2)
-          console.log('Fetching products for machine:', machine.id)
-          const { data: products, error: productsError } = await supabase
-            .from('customer_machine_products')
-            .select('*')
-            .eq('customer_machine_id', machine.id)
-            .order('row_number, slot_number')
-
-          console.log('Products query result for machine', machine.id, ':', { products, productsError })
-
-          if (productsError) {
-            console.error('Error loading machine products:', productsError)
+          // Parse slot configuration from JSON instead of querying customer_machine_products table
+          console.log('Parsing slot configuration for machine:', machine.id)
+          let formattedProducts = []
+          
+          try {
+            const slotConfig = machine.slot_configuration
+            if (slotConfig && typeof slotConfig === 'object' && slotConfig.rows) {
+              // Flatten the rows into individual products
+              formattedProducts = slotConfig.rows.flatMap((row: any, rowIndex: number) => 
+                (row.slots || []).map((slot: any, slotIndex: number) => ({
+                  id: `${machine.id}-row${row.row_number || rowIndex + 1}-slot${slot.slot_number || slotIndex + 1}`,
+                  row_number: row.row_number || rowIndex + 1,
+                  slot_number: slot.slot_number || slotIndex + 1,
+                  product_type_name: slot.product_type_name || 'Unknown',
+                  product_name: slot.product_name || `${slot.product_type_name || 'Unknown'} (Row ${row.row_number || rowIndex + 1}, Slot ${slot.slot_number || slotIndex + 1})`,
+                  brand_name: slot.brand_name || 'Unknown',
+                  base_price: slot.base_price || 0,
+                  commission_rate: slot.commission_rate || 0,
+                  commission_amount: slot.commission_amount || 0,
+                  final_price: slot.final_price || 0,
+                  image_url: slot.image_url || null
+                }))
+              )
+            }
+            console.log('Parsed products from slot configuration:', formattedProducts)
+          } catch (error) {
+            console.error('Error parsing slot configuration:', error)
+            formattedProducts = []
           }
-
-          // Fetch product details for each product
-          const productsWithDetails = await Promise.all(
-            (products || []).map(async (product) => {
-              console.log('Processing product:', product.id, 'product_type_id:', product.product_type_id, 'company_product_id:', product.company_product_id)
-              console.log('Full product data:', product)
-              
-              let productTypeName = 'Unknown'
-              let productName = 'Unknown'
-              let imageUrl = null
-
-              // Get product type name
-              if (product.product_type_id) {
-                const { data: productType, error: productTypeError } = await supabase
-                  .from('product_types')
-                  .select('name')
-                  .eq('id', product.product_type_id)
-                  .single()
-                
-                console.log('Product type query result:', { productType, productTypeError })
-                productTypeName = productType?.name || 'Unknown'
-              }
-
-              // Try to get product name and image from global_products by joining through company_products
-              if (product.company_product_id) {
-                // First try to get the global_product_id from company_products
-                const { data: companyProduct, error: companyProductError } = await supabase
-                  .from('company_products')
-                  .select('global_product_id')
-                  .eq('id', product.company_product_id)
-                  .single()
-                
-                console.log('Company product query result:', { companyProduct, companyProductError })
-                
-                if (companyProduct?.global_product_id) {
-                  // Get name and image from global products
-                  const { data: globalProduct, error: globalProductError } = await supabase
-                    .from('global_products')
-                    .select('brand_name, product_name, image_url')
-                    .eq('id', companyProduct.global_product_id)
-                    .single()
-                  
-                  console.log('Global product query result:', { globalProduct, globalProductError })
-                  productName = globalProduct ? `${globalProduct.brand_name || ''} ${globalProduct.product_name || ''}`.trim() || 'Unknown' : 'Unknown'
-                  imageUrl = globalProduct?.image_url || null
-                } else {
-                  // Fallback: use product type name + slot info
-                  productName = `${productTypeName} (Row ${product.row_number}, Slot ${product.slot_number})`
-                }
-              } else {
-                // No company_product_id, use product type name + slot info
-                productName = `${productTypeName} (Row ${product.row_number}, Slot ${product.slot_number})`
-              }
-
-              return {
-                id: product.id,
-                row_number: product.row_number,
-                slot_number: product.slot_number,
-                product_type_name: productTypeName,
-                product_name: productName,
-                base_price: product.base_price,
-                commission_rate: product.commission_rate,
-                final_price: product.final_price,
-                image_url: imageUrl
-              }
-            })
-          )
-
-          const formattedProducts = productsWithDetails
 
           return {
             ...machine,
@@ -223,6 +175,7 @@ export default function OperatorCustomersPage() {
         approval_status: 'approved',
         nayax_machine_id: machineData.nayaxMachineId.trim(),
         referral_user_id: machineData.referralUserId?.trim() || null,
+        referral_commission_percent: machineData.referralCommissionPercent ? parseFloat(machineData.referralCommissionPercent) : null,
         approved_at: new Date().toISOString(),
         approved_by: user?.id
       }
@@ -303,7 +256,7 @@ export default function OperatorCustomersPage() {
     }
   }
 
-  const updateFormData = (machineId: string, field: 'nayaxMachineId' | 'referralUserId', value: string) => {
+  const updateFormData = (machineId: string, field: 'nayaxMachineId' | 'referralUserId' | 'referralCommissionPercent', value: string) => {
     setFormData(prev => ({
       ...prev,
       [machineId]: {
@@ -311,6 +264,11 @@ export default function OperatorCustomersPage() {
         [field]: value
       }
     }))
+  }
+
+  const handleViewSlotConfiguration = (machine: CustomerMachine) => {
+    setSelectedMachine(machine)
+    setShowSlotModal(true)
   }
 
   const getStatusBadge = (status: string) => {
@@ -434,7 +392,7 @@ export default function OperatorCustomersPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="text-xl font-bold text-gray-900 mb-1">
-                            {machine.customer?.business_name || 'Unknown Business'}
+                            {machine.host_business_name || 'Unknown Business'} - {machine.machine_placement_area || 'Unknown Area'}
                           </h3>
                           <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
@@ -443,7 +401,11 @@ export default function OperatorCustomersPage() {
                             <span className="text-gray-400">•</span>
                             <span className="font-medium">{machine.point_of_contact_name}</span>
                             <span className="text-gray-400">•</span>
-                            <span>{new Date(machine.created_at).toLocaleDateString()}</span>
+                                                          <span>{new Date(machine.created_at).toLocaleDateString('en-US', {
+                                month: '2-digit',
+                                day: '2-digit',
+                                year: 'numeric'
+                              })}</span>
                           </div>
                         </div>
                       </div>
@@ -455,23 +417,6 @@ export default function OperatorCustomersPage() {
 
                   {/* Card Content */}
                   <div className="p-6">
-                    {/* Quick Stats */}
-                    <div className="grid grid-cols-3 gap-4 mb-6">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-600">{machine.products.length}</div>
-                        <div className="text-xs text-gray-500 uppercase tracking-wide">Products</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-green-600">{machine.default_commission_rate}%</div>
-                        <div className="text-xs text-gray-500 uppercase tracking-wide">Commission</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-purple-600">
-                          ${machine.products.reduce((sum, p) => sum + p.final_price, 0).toFixed(0)}
-                        </div>
-                        <div className="text-xs text-gray-500 uppercase tracking-wide">Total Value</div>
-                      </div>
-                    </div>
 
                     {/* Location Info */}
                     <div className="mb-6">
@@ -536,60 +481,17 @@ export default function OperatorCustomersPage() {
                       </div>
                     </div>
 
-                    {/* Products Preview */}
+                    {/* Slot Configuration Button */}
                     <div className="mb-6">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center">
-                          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
-                            <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                            </svg>
-                          </div>
-                          <h4 className="text-sm font-semibold text-gray-700">Products ({machine.products.length})</h4>
-                        </div>
-                        <span className="text-xs text-gray-500">Click to expand</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        {machine.products.slice(0, 4).map((product) => (
-                          <div key={product.id} className="bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition-colors">
-                            <div className="flex items-center space-x-3">
-                              <div className="flex-shrink-0">
-                                {product.image_url ? (
-                                  <img 
-                                    src={product.image_url} 
-                                    alt={product.product_name}
-                                    className="w-8 h-8 object-cover rounded-md"
-                                    onError={(e) => {
-                                      e.currentTarget.style.display = 'none'
-                                      e.currentTarget.nextElementSibling?.classList.remove('hidden')
-                                    }}
-                                  />
-                                ) : null}
-                                {!product.image_url && (
-                                  <div className="w-8 h-8 bg-gray-200 rounded-md flex items-center justify-center">
-                                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium text-gray-900 truncate">
-                                  {product.product_name}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  R{product.row_number}S{product.slot_number} • ${product.final_price}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                        {machine.products.length > 4 && (
-                          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex items-center justify-center">
-                            <span className="text-sm text-gray-500">+{machine.products.length - 4} more</span>
-                          </div>
-                        )}
-                      </div>
+                      <button
+                        onClick={() => handleViewSlotConfiguration(machine)}
+                        className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        View Slot Configuration
+                      </button>
                     </div>
 
                     {/* Approval Form - Only show for pending requests */}
@@ -601,7 +503,7 @@ export default function OperatorCustomersPage() {
                           </svg>
                           Approval Information
                         </h4>
-                        <div className="grid md:grid-cols-2 gap-4 mb-6">
+                        <div className="grid md:grid-cols-3 gap-4 mb-6">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                               Nayax Machine ID <span className="text-red-500">*</span>
@@ -625,6 +527,21 @@ export default function OperatorCustomersPage() {
                               onChange={(e) => updateFormData(machine.id, 'referralUserId', e.target.value)}
                               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                               placeholder="Enter referral user ID"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Referral Commission % <span className="text-gray-400">(Optional)</span>
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              value={formData[machine.id]?.referralCommissionPercent || ''}
+                              onChange={(e) => updateFormData(machine.id, 'referralCommissionPercent', e.target.value)}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                              placeholder="e.g., 5.00"
                             />
                           </div>
                         </div>
@@ -693,9 +610,16 @@ export default function OperatorCustomersPage() {
                               {machine.referral_user_id && (
                                 <p className="text-green-800"><span className="font-medium">Referral User ID:</span> {machine.referral_user_id}</p>
                               )}
+                              {machine.referral_commission_percent && (
+                                <p className="text-green-800"><span className="font-medium">Referral Commission:</span> {machine.referral_commission_percent}%</p>
+                              )}
                             </div>
                             <div>
-                              <p className="text-green-800"><span className="font-medium">Approved:</span> {machine.approved_at ? new Date(machine.approved_at).toLocaleDateString() : 'N/A'}</p>
+                              <p className="text-green-800"><span className="font-medium">Approved:</span> {machine.approved_at ? new Date(machine.approved_at).toLocaleDateString('en-US', {
+                                month: '2-digit',
+                                day: '2-digit',
+                                year: 'numeric'
+                              }) : 'N/A'}</p>
                             </div>
                           </div>
                         </div>
@@ -724,6 +648,151 @@ export default function OperatorCustomersPage() {
           )}
         </div>
       </div>
+
+      {/* Slot Configuration Modal */}
+      {selectedMachine && showSlotModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Slot Configuration - {selectedMachine.host_business_name || 'Unknown Business'}
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {selectedMachine.machine_placement_area || 'Unknown Area'} • {selectedMachine.products.length} products
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowSlotModal(false)
+                    setSelectedMachine(null)
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {selectedMachine.products.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="mx-auto h-12 w-12 text-gray-400">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No products configured</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    This machine doesn't have any products configured yet.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Group products by row */}
+                  {Array.from(new Set(selectedMachine.products.map(p => p.row_number))).sort().map(rowNumber => {
+                    const rowProducts = selectedMachine.products.filter(p => p.row_number === rowNumber)
+                    return (
+                      <div key={rowNumber} className="bg-gray-50 rounded-xl p-4">
+                        {/* Row Header */}
+                        <div className="flex items-center mb-4">
+                          <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                            <span className="text-sm font-bold text-blue-600">{rowNumber}</span>
+                          </div>
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            Row {rowNumber}
+                          </h3>
+                          <span className="ml-2 text-sm text-gray-500">
+                            ({rowProducts.length} slots)
+                          </span>
+                        </div>
+
+                        {/* Slots Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                          {rowProducts.map((product) => (
+                            <div key={product.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                              {/* Slot Header */}
+                              <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium text-gray-700">
+                                    Slot {product.slot_number}
+                                  </span>
+                                  <span className="text-xs text-gray-500 font-mono">
+                                    R{product.row_number}S{product.slot_number}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Product Content */}
+                              <div className="p-3">
+                                {/* Product Image */}
+                                {product.image_url && (
+                                  <div className="mb-3">
+                                    <img
+                                      src={product.image_url}
+                                      alt={product.product_name}
+                                      className="w-full h-24 object-contain rounded-md bg-gray-50"
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement
+                                        target.style.display = 'none'
+                                      }}
+                                    />
+                                  </div>
+                                )}
+
+                                {/* Product Info */}
+                                <div className="space-y-2">
+                                  <div>
+                                    <h4 className="font-medium text-gray-900 text-sm truncate">
+                                      {product.product_name}
+                                    </h4>
+                                    <p className="text-xs text-gray-500 truncate">
+                                      {product.product_type_name === 'Unknown' ? product.brand_name : `${product.brand_name} • ${product.product_type_name}`}
+                                    </p>
+                                  </div>
+
+                                  {/* Pricing Info */}
+                                  <div className="space-y-1">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-xs text-gray-500">Base Price:</span>
+                                      <span className="text-sm font-medium text-gray-900">
+                                        ${product.base_price.toFixed(2)}
+                                      </span>
+                                    </div>
+                                    
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-xs text-gray-500">Commission:</span>
+                                      <span className="text-sm font-medium text-green-600">
+                                        ${product.commission_amount.toFixed(2)}({product.commission_rate}%)
+                                      </span>
+                                    </div>
+
+                                    <div className="flex justify-between items-center pt-1 border-t border-gray-100">
+                                      <span className="text-xs font-medium text-gray-700">Final Price:</span>
+                                      <span className="text-sm font-bold text-blue-600">
+                                        ${product.final_price.toFixed(2)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </RouteGuard>
   )
 } 

@@ -178,6 +178,15 @@ export interface CustomerMachine {
   company_id: string
   company_machine_template_id: string
   
+  // Machine Information
+  machine_name: string
+  machine_image_url?: string
+  machine_dimensions?: string
+  slot_count: number
+  
+  // Customer's slot configuration with product selections and pricing
+  slot_configuration: any // JSONB field with complete product data + pricing
+  
   // Host Location Information
   host_business_name: string
   machine_placement_area: string
@@ -195,11 +204,15 @@ export interface CustomerMachine {
   sales_tax_percentage: number
   
   // Approval Process
-  approval_status: 'pending' | 'approved' | 'rejected'
+  approval_status: 'pending' | 'approved' | 'rejected' | 'abandoned'
   nayax_machine_id?: string
   approved_at?: string
   approved_by?: string
   rejection_reason?: string
+  
+  // Referral Information
+  referral_user_id?: string
+  referral_commission_percent?: number
   
   // Onboarding Status
   onboarding_status: 'in_progress' | 'completed' | 'abandoned'
@@ -272,4 +285,32 @@ export interface CustomerMachineFormData {
   point_of_contact_position?: string
   point_of_contact_email?: string
   point_of_contact_phone?: string
+} 
+
+// Operator Preview Card
+export interface OperatorPreviewCard {
+  id: string
+  company_id: string
+  display_name: string
+  description: string
+  location_name: string
+  logo_url?: string
+  machine_count: number
+  member_since: string
+  created_at: string
+  updated_at: string
+  company?: {
+    id: string
+    name: string
+    logo_url?: string
+  }
+} 
+
+// Nayax API Token
+export interface NayaxApiToken {
+  id: string
+  company_id: string
+  lynx_api_token: string
+  created_at: string
+  updated_at: string
 } 

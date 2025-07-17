@@ -315,53 +315,67 @@ export default function BrowseOperatorsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-8">
-            <h1 className="text-3xl font-bold text-gray-900">Vending Operators</h1>
-            <p className="mt-2 text-gray-600">
-              Find operators in your area or browse all available companies
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
+          <div className="text-center">
+            <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
+              Find{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-teal-600">
+                Vending Operators
+              </span>
+            </h1>
+            <p className="text-xl md:text-2xl text-gray-600 max-w-4xl mx-auto mb-12 leading-relaxed">
+              Discover vending machine operators in your area or browse our complete network. 
+              Connect with professional operators that match your business needs.
             </p>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
         
         {/* Section 1: Location-Based Search */}
-        <div className="mb-12">
-          <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Find Operators Near You</h2>
-            <p className="text-gray-600 mb-6">
-              Enter your business address to find vending operators that serve your area
-            </p>
+        <section className="mb-20">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 mb-8">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">Find Operators Near You</h2>
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                Enter your business address to find vending operators that serve your area
+              </p>
+            </div>
             
             {/* Location Input */}
-            <div className="flex space-x-2 mb-6">
+            <div className="flex flex-col sm:flex-row gap-4 mb-8 max-w-2xl mx-auto">
               <input
                 type="text"
                 placeholder="Enter your business address..."
                 value={locationSearch}
                 onChange={(e) => setLocationSearch(e.target.value)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="flex-1 px-6 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
               />
               <button
                 onClick={handleGeocode}
                 disabled={locationLoading}
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:shadow-lg transform hover:-translate-y-1 transition-all duration-200 disabled:opacity-50 font-semibold"
               >
                 {locationLoading ? 'Searching...' : 'Find Operators'}
               </button>
               <button
                 onClick={handleUseCurrentLocation}
                 disabled={locationLoading}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center space-x-2"
+                className="px-6 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:shadow-lg transform hover:-translate-y-1 transition-all duration-200 disabled:opacity-50 font-semibold flex items-center justify-center space-x-2"
                 title="Use your current location"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
@@ -371,10 +385,10 @@ export default function BrowseOperatorsPage() {
 
             {/* Location Results */}
             {showLocationResults && locationCoords && (
-              <div className="space-y-6">
+              <div className="space-y-8">
                 {/* Map */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Interactive Map</h3>
+                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Interactive Map</h3>
                   <CustomerMap
                     customerLat={locationCoords.lat}
                     customerLng={locationCoords.lng}
@@ -389,10 +403,10 @@ export default function BrowseOperatorsPage() {
                 {/* Company Cards */}
                 {nearbyCompanies.length > 0 ? (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                      Found {nearbyCompanies.length} compan{nearbyCompanies.length !== 1 ? 'ies' : 'y'} serving your area:
+                    <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+                      Found {nearbyCompanies.length} compan{nearbyCompanies.length !== 1 ? 'ies' : 'y'} serving your area
                     </h3>
-                    <div className="space-y-4">
+                    <div className="grid md:grid-cols-2 gap-6">
                       {nearbyCompanies.map((company) => {
                         const distance = calculateDistance(
                           locationCoords.lat, 
@@ -417,7 +431,7 @@ export default function BrowseOperatorsPage() {
                         return (
                           <div
                             key={company.id}
-                            className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
+                            className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200 group"
                           >
                             <div className="p-6">
                               <div className="flex items-start space-x-4">
@@ -427,11 +441,11 @@ export default function BrowseOperatorsPage() {
                                     <img 
                                       src={company.logo_url} 
                                       alt={`${company.name} logo`}
-                                      className="w-16 h-16 rounded-lg object-cover border border-gray-200"
+                                      className="w-20 h-20 rounded-xl object-cover border border-gray-200 shadow-sm"
                                     />
                                   ) : (
-                                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                                      <span className="text-white font-bold text-lg">
+                                    <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm">
+                                      <span className="text-white font-bold text-xl">
                                         {company.name.charAt(0).toUpperCase()}
                                       </span>
                                     </div>
@@ -440,30 +454,29 @@ export default function BrowseOperatorsPage() {
 
                                 {/* Company Info */}
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-start justify-between">
+                                  <div className="flex items-start justify-between mb-3">
                                     <div className="flex-1">
-                                      <h4 className="text-xl font-semibold text-gray-900 mb-1">
+                                      <h4 className="text-xl font-bold text-gray-900 mb-1">
                                         {company.name}
                                       </h4>
                                       {company.slogan && (
-                                        <p className="text-sm text-gray-600 mb-3 italic">"{company.slogan}"</p>
+                                        <p className="text-sm text-gray-600 italic">"{company.slogan}"</p>
                                       )}
-
                                     </div>
                                     
                                     {/* Distance Badge */}
                                     <div className="flex-shrink-0 ml-4">
-                                      <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                                      <div className="bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 px-4 py-2 rounded-full text-sm font-semibold">
                                         {distance.toFixed(1)} miles
                                       </div>
                                     </div>
                                   </div>
 
                                   {/* Credentials Grid */}
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                    <div className="flex items-center space-x-2">
-                                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                    <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
+                                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                                         </svg>
                                       </div>
@@ -473,9 +486,9 @@ export default function BrowseOperatorsPage() {
                                       </div>
                                     </div>
                                     
-                                    <div className="flex items-center space-x-2">
-                                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg">
+                                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                       </div>
@@ -485,9 +498,9 @@ export default function BrowseOperatorsPage() {
                                       </div>
                                     </div>
                                     
-                                    <div className="flex items-center space-x-2">
-                                      <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                                        <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <div className="flex items-center space-x-3 p-3 bg-purple-50 rounded-lg">
+                                      <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                                         </svg>
                                       </div>
@@ -523,7 +536,7 @@ export default function BrowseOperatorsPage() {
                                     <div className="flex items-center space-x-3">
                                       <a
                                         href={`/${encodeURIComponent(company.name)}?from=search&location=${encodeURIComponent(locationSearch)}`}
-                                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+                                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-semibold rounded-lg hover:shadow-lg transform hover:-translate-y-1 transition-all duration-200"
                                       >
                                         View Profile
                                         <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -534,7 +547,7 @@ export default function BrowseOperatorsPage() {
                                       {companyTemplates[company.id] && companyTemplates[company.id].length > 0 ? (
                                         <a
                                           href={`/customers/onboarding?company_id=${company.id}&template_id=${companyTemplates[company.id][0].id}`}
-                                          className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
+                                          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white text-sm font-semibold rounded-lg hover:shadow-lg transform hover:-translate-y-1 transition-all duration-200"
                                         >
                                           Start Onboarding
                                           <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -546,7 +559,7 @@ export default function BrowseOperatorsPage() {
                                           onClick={() => {
                                             showToast('No machine templates available for this operator yet', 'info')
                                           }}
-                                          className="inline-flex items-center px-4 py-2 bg-gray-400 text-white text-sm font-medium rounded-md cursor-not-allowed"
+                                          className="inline-flex items-center px-4 py-2 bg-gray-400 text-white text-sm font-semibold rounded-lg cursor-not-allowed"
                                           disabled
                                         >
                                           No Templates
@@ -566,70 +579,108 @@ export default function BrowseOperatorsPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-8 bg-gray-50 rounded-lg">
-                    <p className="text-gray-500">No operators found serving your area</p>
+                  <div className="text-center py-12 bg-gray-50 rounded-2xl border border-gray-200">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Operators Found</h3>
+                    <p className="text-gray-600">No operators found serving your area. Try browsing all operators below.</p>
                   </div>
                 )}
               </div>
             )}
           </div>
-        </div>
+        </section>
 
         {/* Section 2: Browse All Operators */}
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Browse All Operators</h2>
-          <p className="text-gray-600 mb-6">
-            Explore all vending machine operators in our network
-          </p>
+        <section className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Browse All Operators</h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Explore all vending machine operators in our network
+            </p>
+          </div>
           
           {/* Search */}
-          <div className="mb-6">
+          <div className="mb-8 max-w-md mx-auto">
             <input
               type="text"
               placeholder="Search operators by name or description..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-6 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
             />
           </div>
 
           {/* Operators Grid */}
           {filteredOperators.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredOperators.map((operator) => (
                 <div
                   key={operator.id}
-                  className="block bg-gray-50 rounded-lg p-6 hover:bg-gray-100 transition-colors border border-gray-200"
+                  className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 hover:shadow-lg transition-all duration-300 border border-gray-200 group hover:transform hover:-translate-y-1"
                 >
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    {operator.name}
-                  </h3>
-                  {operator.slogan && (
-                    <p className="text-sm text-gray-600 italic mb-3">
-                      {operator.slogan}
-                    </p>
-                  )}
+                  <div className="flex items-start space-x-4 mb-4">
+                    {/* Logo Space */}
+                    <div className="flex-shrink-0">
+                      {operator.logo_url ? (
+                        <img 
+                          src={operator.logo_url} 
+                          alt={`${operator.name} logo`}
+                          className="w-16 h-16 rounded-xl object-cover border border-gray-200 shadow-sm"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm">
+                          <span className="text-white font-bold text-lg">
+                            {operator.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Company Info */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xl font-bold text-gray-900 mb-1">
+                        {operator.name}
+                      </h3>
+                      {operator.slogan && (
+                        <p className="text-sm text-gray-600 italic">
+                          {operator.slogan}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
                   {operator.description && (
-                    <p className="text-gray-600 mb-4 line-clamp-3">
+                    <p className="text-gray-600 mb-6 line-clamp-3 leading-relaxed">
                       {operator.description}
                     </p>
                   )}
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-sm text-gray-500">
+
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="text-sm text-gray-600 space-y-2">
                       {operator.contact_email && (
-                        <div className="flex items-center mb-1">
-                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="flex items-center">
+                          <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                           </svg>
-                          {operator.contact_email}
+                          <span className="truncate">{operator.contact_email}</span>
                         </div>
                       )}
                       {operator.contact_phone && (
                         <div className="flex items-center">
-                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                           </svg>
-                          {operator.contact_phone}
+                          <span>{operator.contact_phone}</span>
                         </div>
                       )}
                     </div>
@@ -639,7 +690,7 @@ export default function BrowseOperatorsPage() {
                   <div className="flex items-center space-x-3">
                     <a
                       href={`/${encodeURIComponent(operator.name)}`}
-                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+                      className="flex-1 inline-flex items-center justify-center px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-semibold rounded-lg hover:shadow-lg transform hover:-translate-y-1 transition-all duration-200"
                     >
                       View Profile
                       <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -650,7 +701,7 @@ export default function BrowseOperatorsPage() {
                     {companyTemplates[operator.id] && companyTemplates[operator.id].length > 0 ? (
                       <a
                         href={`/customers/onboarding?company_id=${operator.id}&template_id=${companyTemplates[operator.id][0].id}`}
-                        className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
+                        className="flex-1 inline-flex items-center justify-center px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white text-sm font-semibold rounded-lg hover:shadow-lg transform hover:-translate-y-1 transition-all duration-200"
                       >
                         Start Onboarding
                         <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -662,7 +713,7 @@ export default function BrowseOperatorsPage() {
                         onClick={() => {
                           showToast('No machine templates available for this operator yet', 'info')
                         }}
-                        className="inline-flex items-center px-4 py-2 bg-gray-400 text-white text-sm font-medium rounded-md cursor-not-allowed"
+                        className="flex-1 inline-flex items-center justify-center px-4 py-3 bg-gray-400 text-white text-sm font-semibold rounded-lg cursor-not-allowed"
                         disabled
                       >
                         No Templates
@@ -676,13 +727,21 @@ export default function BrowseOperatorsPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">
+            <div className="text-center py-16">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 {searchTerm ? 'No operators found matching your search.' : 'No operators available at the moment.'}
+              </h3>
+              <p className="text-gray-600">
+                {searchTerm ? 'Try adjusting your search terms or browse all operators.' : 'Check back later for new operators joining our network.'}
               </p>
             </div>
           )}
-        </div>
+        </section>
       </div>
     </div>
   )

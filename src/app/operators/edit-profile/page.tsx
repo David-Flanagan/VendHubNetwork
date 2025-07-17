@@ -359,7 +359,7 @@ export default function EditProfile() {
   }
 
   return (
-    <RouteGuard requiredRole="operator" redirectTo="/operators/login">
+    <RouteGuard requiredRole="operator" redirectTo="/auth/operators/login">
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <div className="bg-white shadow">

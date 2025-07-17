@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -10,77 +10,116 @@ export default function CustomerLogin() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<string[]>([])
+  const [componentMounted, setComponentMounted] = useState(false)
   const router = useRouter()
   const { showToast } = useToast()
+
+  // Add debug logging function
+  const addDebugLog = (message: string) => {
+    console.log(`[CustomerLogin Debug] ${message}`)
+    setDebugInfo(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`])
+  }
+
+  // Component mount effect
+  useEffect(() => {
+    setComponentMounted(true)
+    addDebugLog('Component mounted')
+    // Test Supabase connection
+    const testConnection = async () => {
+      try {
+        addDebugLog('Testing Supabase connection...')
+        const { error } = await supabase.from('users').select('count').limit(1)
+        if (error) {
+          addDebugLog(`Supabase connection error: ${error.message}`)
+        } else {
+          addDebugLog('Supabase connection successful')
+        }
+      } catch (err) {
+        addDebugLog(`Supabase connection test failed: ${err}`)
+      }
+    }
+    testConnection()
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-
+    addDebugLog('Login attempt started')
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
-
+      addDebugLog(`Attempting to sign in with email: ${email}`)
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
+        addDebugLog(`Auth error: ${error.message} (${error.status})`)
         throw error
       }
-
+      addDebugLog(`Auth successful for user: ${data.user?.email}`)
+      addDebugLog(`User ID: ${data.user?.id}`)
       if (data.user) {
         // Check if user has customer role with retry mechanism
         let userData = null
         let userError = null
         let retries = 0
         const maxRetries = 3
-
+        addDebugLog('Checking user role in database...')
         while (retries < maxRetries) {
+          addDebugLog(`Role check attempt ${retries + 1}/${maxRetries}`)
           const { data: userResult, error: userResultError } = await supabase
             .from('users')
-            .select('role')
+            .select('role, company_id')
             .eq('id', data.user.id)
             .single()
-
           userData = userResult
           userError = userResultError
-
+          addDebugLog(`Role check result: ${userError ? `Error: ${userError.message}` : `Success: ${JSON.stringify(userData)}`}`)
           if (!userError && userData) {
-            break // Success, exit retry loop
+            addDebugLog('User role found, exiting retry loop')
+            break
           }
-
           if (userError && userError.code === 'PGRST116') {
-            // User not found, wait a bit and retry (might be timing issue)
+            addDebugLog('User not found in database, will retry...')
             retries++
             if (retries < maxRetries) {
-              await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
+              addDebugLog('Waiting 1 second before retry...')
+              await new Promise(resolve => setTimeout(resolve, 1000))
               continue
             }
           }
-
-          break // Exit retry loop for other errors or max retries reached
+          addDebugLog('Exiting retry loop due to error or max retries')
+          break
         }
-
         if (userError) {
+          addDebugLog(`Final user role check error: ${userError.message}`)
           console.error('Error checking user role:', userError)
           showToast('Error verifying user role. Please try signing up again.', 'error')
           await supabase.auth.signOut()
           return
         }
-
-        if (!userData || userData.role !== 'customer') {
+        if (!userData) {
+          addDebugLog('No user data found after all retries')
+          showToast('User account not found. Please try signing up again.', 'error')
+          await supabase.auth.signOut()
+          return
+        }
+        addDebugLog(`User role: ${userData.role}`)
+        addDebugLog(`Company ID: ${userData.company_id}`)
+        if (userData.role !== 'customer') {
+          addDebugLog(`User role is not customer: ${userData.role}`)
           showToast('This account is not a customer account', 'error')
           await supabase.auth.signOut()
           return
         }
-
+        addDebugLog('User role verified as customer, redirecting to dashboard')
         showToast('Welcome back!', 'success')
         router.push('/customers/dashboard')
       }
     } catch (error: any) {
+      addDebugLog(`Login error caught: ${error.message}`)
       console.error('Login error:', error)
       showToast(error.message || 'Error signing in', 'error')
     } finally {
       setLoading(false)
+      addDebugLog('Login attempt finished')
     }
   }
 
@@ -94,9 +133,30 @@ export default function CustomerLogin() {
           </p>
         </div>
       </div>
-
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          {/* Debug Info Panel - Only show in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mb-6 bg-gray-100 lg:px-2">
+              <h3 className="text-sm font-medium text-gray-700">Debug Info:</h3>
+              <div className="text-xs text-gray-600 max-h-32 overflow-y-auto">
+                <div>Component Mounted: {componentMounted ? 'Yes' : 'No'}</div>
+                <div>Loading State: {loading ? 'Yes' : 'No'}</div>
+                <div>Email: {email || 'Not set'}</div>
+                <div>Password Length: {password.length}</div>
+                <div className="mt-2">
+                  <strong>Logs:</strong>
+                  {debugInfo.length === 0 ? (
+                    <div>No logs yet</div>
+                  ) : (
+                    debugInfo.slice(-5).map((log, index) => (
+                      <div key={index} className="font-mono text-xs">{log}</div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           <form className="space-y-6" onSubmit={handleLogin}>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
@@ -110,13 +170,15 @@ export default function CustomerLogin() {
                   autoComplete="email"
                   required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    addDebugLog(`Email changed to: ${e.target.value}`)
+                  }}
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter your email"
                 />
               </div>
             </div>
-
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
@@ -129,13 +191,15 @@ export default function CustomerLogin() {
                   autoComplete="current-password"
                   required
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    addDebugLog(`Password changed (length: ${e.target.value.length})`)
+                  }}
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter your password"
                 />
               </div>
             </div>
-
             <div>
               <button
                 type="submit"
@@ -146,7 +210,6 @@ export default function CustomerLogin() {
               </button>
             </div>
           </form>
-
           <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -156,7 +219,6 @@ export default function CustomerLogin() {
                 <span className="px-2 bg-white text-gray-500">Don't have an account?</span>
               </div>
             </div>
-
             <div className="mt-6 text-center">
               <Link
                 href="/customers/signup"

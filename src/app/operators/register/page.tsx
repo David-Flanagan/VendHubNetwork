@@ -155,7 +155,7 @@ export default function OperatorRegistration() {
       localStorage.removeItem('tempUserData')
 
       showToast('Registration successful! You can now log in.', 'success')
-      router.push('/operators/login')
+      router.push('/auth/operators/login')
     } catch (error: any) {
       setError(error.message || 'Error creating company profile')
     } finally {
@@ -384,7 +384,7 @@ export default function OperatorRegistration() {
         <div className="text-center">
           <p className="text-sm text-gray-600">
             Already have an account?{' '}
-            <a href="/operators/login" className="font-medium text-green-600 hover:text-green-500">
+            <a href="/auth/operators/login" className="font-medium text-green-600 hover:text-green-500">
               Sign in here
             </a>
           </p>

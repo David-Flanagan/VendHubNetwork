@@ -20,7 +20,8 @@ interface OperatorPreviewCardFormData {
 const limits = {
   display_name: 50,
   description: 200,
-  location_name: 100
+  location_name: 100,
+  logo_url: 1000 // Add limit for logo_url as well
 }
 
 export default function PreviewCardEditor({ onSave }: PreviewCardEditorProps) {
@@ -45,7 +46,17 @@ export default function PreviewCardEditor({ onSave }: PreviewCardEditorProps) {
 
   const loadPreviewCard = async () => {
     try {
-      if (!user?.company_id) return
+      if (!supabase) {
+        console.error('Supabase not configured')
+        showToast('Database not configured', 'error')
+        return
+      }
+
+      if (!user?.company_id) {
+        console.error('User has no company_id:', user)
+        showToast('No company associated with your account. Please contact support.', 'error')
+        return
+      }
 
       // Get company data
       const { data: companyData, error: companyError } = await supabase
@@ -88,7 +99,7 @@ export default function PreviewCardEditor({ onSave }: PreviewCardEditorProps) {
         const defaultData = {
           display_name: companyData.name || '',
           description: companyData.description || 'Professional vending services for modern businesses.',
-          location_name: companyData.location_name || '',
+          location_name: (companyData.location_name || '').substring(0, 100), // Truncate to 100 chars
           logo_url: companyData.logo_url || ''
         }
         setFormData(defaultData)
@@ -109,6 +120,11 @@ export default function PreviewCardEditor({ onSave }: PreviewCardEditorProps) {
 
   const updateMachineCount = async () => {
     try {
+      if (!supabase) {
+        console.error('Supabase not configured')
+        return
+      }
+
       if (!user?.company_id) return
 
       // Count customer machines for this company
@@ -131,7 +147,7 @@ export default function PreviewCardEditor({ onSave }: PreviewCardEditorProps) {
       if (updateError) {
         console.error('Error updating machine count:', updateError)
       } else {
-        setPreviewCard(prev => prev ? { ...prev, machine_count: count || 0 } : null)
+        setPreviewCard((prev: any) => prev ? { ...prev, machine_count: count || 0 } : null)
       }
     } catch (error) {
       console.error('Error updating machine count:', error)
@@ -139,7 +155,7 @@ export default function PreviewCardEditor({ onSave }: PreviewCardEditorProps) {
   }
 
   const handleInputChange = (field: keyof OperatorPreviewCardFormData, value: string) => {
-    const limit = limits[field]
+    const limit = limits[field as keyof typeof limits]
     if (value.length <= limit) {
       setFormData(prev => ({
         ...prev,
@@ -152,8 +168,27 @@ export default function PreviewCardEditor({ onSave }: PreviewCardEditorProps) {
     try {
       setSaving(true)
       
+      if (!supabase) {
+        showToast('Database not configured', 'error')
+        return
+      }
+
       if (!user?.company_id) {
         showToast('No company associated with your account', 'error')
+        return
+      }
+
+      // Validate field lengths before saving
+      if (formData.display_name.length > 50) {
+        showToast('Display name must be 50 characters or less', 'error')
+        return
+      }
+      if (formData.description.length > 200) {
+        showToast('Description must be 200 characters or less', 'error')
+        return
+      }
+      if (formData.location_name.length > 100) {
+        showToast('Location name must be 100 characters or less', 'error')
         return
       }
 

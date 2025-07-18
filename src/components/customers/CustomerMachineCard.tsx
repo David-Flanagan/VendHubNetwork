@@ -345,6 +345,16 @@ export default function CustomerMachineCard({ machine, onUpdate }: CustomerMachi
                 View Slot Configuration
               </button>
               
+              {/* Show View Referral Sales button for referral machines */}
+              {machine.referral_user_id === user?.id && machine.approval_status === 'approved' && (
+                <button
+                  onClick={() => router.push(`/customers/dashboard/referral-sales?machine=${machine.id}`)}
+                  className="flex-1 bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                >
+                  View Referral Sales
+                </button>
+              )}
+              
               {(machine.approval_status === 'pending' || machine.onboarding_status === 'in_progress') && (
                 <button
                   onClick={handleCancelRequest}

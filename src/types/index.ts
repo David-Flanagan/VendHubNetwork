@@ -314,3 +314,129 @@ export interface NayaxApiToken {
   created_at: string
   updated_at: string
 } 
+
+// Commission Types
+export interface CommissionEarning {
+  id: string
+  customer_id: string
+  operator_company_id: string
+  customer_machine_id: string
+  transaction_id: string
+  transaction_date: string
+  
+  // Commission Details
+  commission_type: 'owner' | 'referral'
+  base_amount: number
+  commission_percentage: number
+  commission_amount: number
+  
+  // Product Details
+  product_name: string
+  quantity: number
+  
+  // Status
+  status: 'earned' | 'pending_cashout' | 'paid'
+  cashout_id?: string
+  
+  // Metadata
+  created_at: string
+  updated_at: string
+  
+  // Joined data
+  operator_company?: {
+    id: string
+    name: string
+    logo_url?: string
+  }
+  customer_machine?: {
+    id: string
+    machine_name: string
+    host_business_name: string
+  }
+}
+
+export interface CommissionCashout {
+  id: string
+  customer_id: string
+  
+  // Cashout Details
+  total_amount: number
+  requested_amount: number
+  minimum_cashout_amount: number
+  
+  // Status
+  status: 'pending' | 'approved' | 'rejected' | 'paid'
+  
+  // Payment Details
+  payment_method?: string
+  payment_reference?: string
+  paid_at?: string
+  paid_by?: string
+  
+  // Notes
+  customer_notes?: string
+  operator_notes?: string
+  
+  // Metadata
+  created_at: string
+  updated_at: string
+  
+  // Joined data
+  customer?: {
+    id: string
+    business_name: string
+  }
+  paid_by_user?: {
+    id: string
+    email: string
+  }
+}
+
+export interface CommissionPayout {
+  id: string
+  cashout_id: string
+  customer_id: string
+  operator_company_id: string
+  
+  // Payment Details
+  payment_amount: number
+  payment_method: string
+  payment_reference?: string
+  payment_date: string
+  
+  // Status
+  status: 'pending' | 'completed' | 'failed'
+  
+  // Metadata
+  created_at: string
+  updated_at: string
+  
+  // Joined data
+  operator_company?: {
+    id: string
+    name: string
+  }
+  customer?: {
+    id: string
+    email: string
+  }
+}
+
+export interface CommissionSummary {
+  total_earnings: number
+  total_earned: number
+  pending_cashouts: number
+  total_pending: number
+  total_paid: number
+  available_balance: number
+  available_for_cashout: number
+  minimum_cashout_amount: number
+  recent_activity: CommissionEarning[]
+  operator_breakdown: {
+    operator_id: string
+    operator_name: string
+    operator_company_id: string
+    total_earnings: number
+    pending_amount: number
+  }[]
+} 

@@ -98,16 +98,19 @@ export default function OperatorCustomersPage() {
           // Fetch customer info for this machine
           let customerInfo = null
           if (machine.customer_id) {
-            const { data: customers, error: customerError } = await supabase
-              .from('customers')
-              .select('business_name, business_type')
-              .eq('user_id', machine.customer_id)
+            const { data: customerUser, error: customerError } = await supabase
+              .from('users')
+              .select('email')
+              .eq('id', machine.customer_id)
               .limit(1)
               .maybeSingle()
             if (customerError) {
               console.error('Error loading customer info:', customerError)
             }
-            customerInfo = customers
+            customerInfo = customerUser ? {
+              business_name: customerUser.email, // Use email as business name for now
+              business_type: 'Customer'
+            } : null
           }
 
           // Parse slot configuration from JSON instead of querying customer_machine_products table

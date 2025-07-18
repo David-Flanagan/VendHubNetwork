@@ -26,6 +26,7 @@ export default function MachineSalesPage() {
   })
   const [salesData, setSalesData] = useState<any[]>([])
   const [salesLoading, setSalesLoading] = useState(false)
+  const [includeFailed, setIncludeFailed] = useState(false)
 
   useEffect(() => {
     if (user?.id) {
@@ -38,6 +39,12 @@ export default function MachineSalesPage() {
       fetchSalesData()
     }
   }, [machines, loading])
+
+  useEffect(() => {
+    if (machines.length > 0 && !loading) {
+      fetchSalesData()
+    }
+  }, [includeFailed]) // Refetch when includeFailed changes
 
   const fetchMachines = async () => {
     try {
@@ -126,9 +133,9 @@ export default function MachineSalesPage() {
   }
 
   const formatTransactionTime = (transaction: any): string => {
-    // Use AuthorizationDateTimeGMT for consistent time display
-    if (transaction.AuthorizationDateTimeGMT) {
-      return new Date(transaction.AuthorizationDateTimeGMT).toLocaleString('en-US', {
+    // Use authorization_datetime from database
+    if (transaction.authorization_datetime) {
+      return new Date(transaction.authorization_datetime).toLocaleString('en-US', {
         month: '2-digit',
         day: '2-digit',
         year: 'numeric',
@@ -322,12 +329,21 @@ export default function MachineSalesPage() {
 
   // Determine transaction status based on settlement_value
   const getTransactionStatus = (transaction: any): { status: string; color: string } => {
-    const settlementValue = parseFloat(transaction.SettlementValue || 0)
+    // Use the transactionStatus field from the API response
+    const status = transaction.transactionStatus || transaction.transaction_status
     
-    if (settlementValue > 0) {
+    if (status === 'completed' || status === 'Completed') {
       return { status: 'Completed', color: 'text-green-600' }
-    } else {
+    } else if (status === 'failed' || status === 'Failed') {
       return { status: 'Failed', color: 'text-red-600' }
+    } else {
+      // Fallback to settlement value check
+      const settlementValue = parseFloat(transaction.settlement_value || transaction.SettlementValue || 0)
+      if (settlementValue > 0) {
+        return { status: 'Completed', color: 'text-green-600' }
+      } else {
+        return { status: 'Failed', color: 'text-red-600' }
+      }
     }
   }
 
@@ -378,66 +394,33 @@ export default function MachineSalesPage() {
     try {
       setSalesLoading(true)
       
-      if (!user?.id || machines.length === 0) {
-        showToast('No machines available', 'error')
-        return
-      }
-
-      // If "all" is selected, use the first machine with Nayax ID
-      const targetMachine = selectedMachine === 'all' 
-        ? machines.find(m => m.nayax_machine_id)
-        : machines.find(m => m.id === selectedMachine && m.nayax_machine_id)
-
-      if (!targetMachine) {
-        showToast('No machines with Nayax ID found for the selected criteria', 'error')
+      if (!user?.id) {
+        showToast('User not authenticated', 'error')
         return
       }
 
       // Get time range for the selected period
       const timeRange = getTimeRange(timePeriod)
-      const startDate = timeRange.start.toISOString().split('T')[0]
-      const endDate = timeRange.end.toISOString().split('T')[0]
+      const startDate = timeRange.start.toISOString()
+      const endDate = timeRange.end.toISOString()
 
-      console.log('Fetching sales data for machine:', targetMachine.nayax_machine_id)
+      console.log('Fetching sales data from database')
       console.log('Date range:', startDate, 'to', endDate)
+      console.log('Machine filter:', selectedMachine)
       
-      // Get the operator's Nayax API token using secure server-side route
-      const tokenResponse = await fetch(`/api/get-operator-token?companyId=${targetMachine.company_id}`)
-      
-      if (!tokenResponse.ok) {
-        let errorMessage = 'Unknown error'
-        try {
-          const errorData = await tokenResponse.json()
-          errorMessage = errorData.error || errorData.details || 'Unknown error'
-        } catch (e) {
-          errorMessage = `Server error: ${tokenResponse.status} ${tokenResponse.statusText}`
-        }
-        
-        console.log('Token lookup failed:', { 
-          companyId: targetMachine.company_id, 
-          status: tokenResponse.status,
-          statusText: tokenResponse.statusText,
-          error: errorMessage
-        })
-        
-        if (tokenResponse.status === 500) {
-          showToast('Server configuration error. Please check environment variables.', 'error')
-        } else {
-          showToast(`No Nayax API token found for operator (Company ID: ${targetMachine.company_id}). Please have the operator set up their API token in Settings > Integrations.`, 'error')
-        }
-        return
-      }
-
-      const tokenData = await tokenResponse.json()
-      console.log('Token retrieved successfully:', { tokenMasked: tokenData.tokenMasked })
-
-      // Make API call to Nayax
-      const response = await fetch(`/api/test-nayax?machineId=${targetMachine.nayax_machine_id}&startDate=${startDate}&endDate=${endDate}`, {
-        method: 'GET',
+      // Fetch data from database using new API
+      const response = await fetch('/api/customer-sales-data', {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${tokenData.token}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customerId: user.id,
+          startDate,
+          endDate,
+          machineId: selectedMachine,
+          includeFailed: includeFailed
+        })
       })
 
       if (!response.ok) {
@@ -445,13 +428,12 @@ export default function MachineSalesPage() {
       }
 
       const data = await response.json()
-      console.log('Nayax API Response:', data)
+      console.log('Database Response:', data)
       
-      // Process the transactions
-      const transactions = Array.isArray(data) ? data : []
-      setSalesData(transactions)
+      // Set the processed transactions
+      setSalesData(data.transactions || [])
       
-      showToast(`Loaded ${transactions.length} transactions`, 'success')
+      showToast(`Loaded ${data.transactions?.length || 0} transactions from database`, 'success')
 
     } catch (error) {
       console.error('Error fetching sales data:', error)
@@ -590,7 +572,7 @@ export default function MachineSalesPage() {
                 <option value="all">All Machines</option>
                 {machines.map((machine) => (
                   <option key={machine.id} value={machine.id}>
-                    {machine.machine_name} - {machine.host_business_name}
+                    {machine.host_business_name} - {machine.machine_placement_area}
                   </option>
                 ))}
               </select>
@@ -646,6 +628,27 @@ export default function MachineSalesPage() {
                 </div>
               </div>
             )}
+
+            {/* Include Failed Transactions Toggle */}
+            <div className="md:col-span-2 lg:col-span-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Transaction Filter
+              </label>
+              <div className="flex items-center space-x-3">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={includeFailed}
+                    onChange={(e) => setIncludeFailed(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Include Failed Transactions</span>
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Failed transactions are excluded from commission calculations
+              </p>
+            </div>
           </div>
 
           {/* Selected Time Range Display */}
@@ -667,6 +670,22 @@ export default function MachineSalesPage() {
                 className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
                 Test Nayax API
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/sync-all-machines', { method: 'POST' })
+                    const data = await response.json()
+                    console.log('Background sync result:', data)
+                    showToast(`Background sync completed: ${data.totalTransactions} transactions`, 'success')
+                  } catch (error) {
+                    console.error('Background sync error:', error)
+                    showToast('Background sync failed', 'error')
+                  }
+                }}
+                className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+              >
+                Run Background Sync
               </button>
             </div>
           </div>
@@ -703,7 +722,7 @@ export default function MachineSalesPage() {
                 <p className="text-sm font-medium text-gray-500">Total Revenue</p>
                 <p className="text-2xl font-semibold text-gray-900">
                   {salesLoading ? '...' : formatAmount(
-                    salesData.reduce((sum, t) => sum + (parseFloat(t.AuthorizationValue || 0) || 0), 0)
+                    salesData.reduce((sum, t) => sum + (parseFloat(t.authorization_value || 0) || 0), 0)
                   )}
                 </p>
               </div>
@@ -723,9 +742,8 @@ export default function MachineSalesPage() {
                 <p className="text-2xl font-semibold text-gray-900">
                   {salesLoading ? '...' : formatAmount(
                     salesData.reduce((sum, t) => {
-                      const mappedMachine = mapNayaxMachineToOurMachine(t)
-                      const commission = getCommissionAmount(t, mappedMachine)
-                      return sum + (parseFloat(commission.replace('$', '')) || 0)
+                      const commission = t.commissionAmount?.replace('$', '') || '0'
+                      return sum + (parseFloat(commission) || 0)
                     }, 0)
                   )}
                 </p>
@@ -745,7 +763,7 @@ export default function MachineSalesPage() {
                 <p className="text-sm font-medium text-gray-500">Avg Transaction</p>
                 <p className="text-2xl font-semibold text-gray-900">
                   {salesLoading ? '...' : salesData.length > 0 ? formatAmount(
-                    salesData.reduce((sum, t) => sum + (parseFloat(t.AuthorizationValue || 0) || 0), 0) / salesData.length
+                    salesData.reduce((sum, t) => sum + (parseFloat(t.authorization_value || 0) || 0), 0) / salesData.length
                   ) : '$0.00'}
                 </p>
               </div>
@@ -778,9 +796,8 @@ export default function MachineSalesPage() {
               <p className="text-lg font-semibold text-gray-900">
                 {salesLoading ? '...' : formatAmount(
                   salesData.reduce((sum, t) => {
-                    const mappedMachine = mapNayaxMachineToOurMachine(t)
-                    const commission = getCommissionAmount(t, mappedMachine)
-                    return sum + (parseFloat(commission.replace('$', '')) || 0)
+                    const commission = t.commissionAmount?.replace('$', '') || '0'
+                    return sum + (parseFloat(commission) || 0)
                   }, 0)
                 )}
               </p>
@@ -855,37 +872,36 @@ export default function MachineSalesPage() {
                   </tr>
                 ) : (
                   salesData.map((transaction, index) => {
-                    const mappedMachine = mapNayaxMachineToOurMachine(transaction)
                     return (
-                      <tr key={transaction.TransactionID || index} className="hover:bg-gray-50">
+                      <tr key={transaction.transaction_id || index} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {formatTransactionTime(transaction)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {mappedMachine ? mappedMachine.displayName : 'Unknown Machine'}
+                          {transaction.mappedMachine ? transaction.mappedMachine.displayName : 'Unknown Machine'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {getProductName(transaction, mappedMachine)}
+                          {transaction.mappedProductName}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                          {transaction.Quantity || 1}
+                          {transaction.quantity}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                          {getVendingPrice(transaction, mappedMachine)}
+                          {transaction.vendingPrice}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                          {formatAmount(transaction.AuthorizationValue)}
+                          {transaction.formattedAuthorizationValue}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {getCommissionAmount(transaction, mappedMachine)}
+                          {transaction.commissionAmount}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <span className={`font-medium ${getTransactionStatus(transaction).color}`}>
-                            {getTransactionStatus(transaction).status}
+                          <span className={`font-medium ${transaction.transaction_status === 'completed' ? 'text-green-600' : 'text-red-600'}`}>
+                            {transaction.transaction_status === 'completed' ? 'Completed' : 'Failed'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {transaction.PaymentMethod || 'Unknown'}
+                          {transaction.payment_method || 'Unknown'}
                         </td>
                       </tr>
                     )

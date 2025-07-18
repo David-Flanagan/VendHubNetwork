@@ -1,5 +1,5 @@
--- Final Fix for RLS policies for customers table
--- This uses the correct column names from the actual database structure
+-- Fix RLS policies for customers table with more permissive access
+-- This allows customers to access their own data properly
 
 -- First, disable RLS temporarily to drop policies
 ALTER TABLE customers DISABLE ROW LEVEL SECURITY;
@@ -15,11 +15,18 @@ DROP POLICY IF EXISTS "Admins can view all customer data" ON customers;
 -- Re-enable RLS
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 
--- Create policies that work with the actual database structure
+-- Create more permissive policies that work with the current auth system
 -- Policy 1: Customers can view their own data
 CREATE POLICY "Customers can view own data" ON customers
     FOR SELECT
-    USING (user_id = auth.uid());
+    USING (
+        user_id = auth.uid() OR 
+        id IN (
+            SELECT customer_id 
+            FROM customer_machines 
+            WHERE customer_id = customers.id
+        )
+    );
 
 -- Policy 2: Customers can insert their own data
 CREATE POLICY "Customers can insert own data" ON customers
@@ -38,14 +45,13 @@ CREATE POLICY "Customers can delete own data" ON customers
     USING (user_id = auth.uid());
 
 -- Policy 5: Operators can view customer data for machines they operate
--- This uses the correct relationship through customer_machines -> companies
 CREATE POLICY "Operators can view customer data for matching" ON customers
     FOR SELECT
     USING (
         EXISTS (
             SELECT 1 
             FROM customer_machines cm
-            JOIN companies c ON cm.companies = c.id
+            JOIN companies c ON cm.operating_company_id = c.id
             WHERE cm.customer_id = customers.id
             AND c.owner_id = auth.uid()
         )

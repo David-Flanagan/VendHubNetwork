@@ -43,8 +43,13 @@ export default function AdminGlobalProductsPage() {
 
   const fetchProducts = async () => {
     try {
+      if (!supabase) {
+        showToast('Database not configured', 'error')
+        return
+      }
+      
       setLoadingProducts(true)
-      const { data, error } = await supabase
+      const { data, error } = await supabase!
         .from('global_products')
         .select(`
           *,

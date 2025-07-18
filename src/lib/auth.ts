@@ -9,6 +9,11 @@ export interface User {
 
 export async function checkAdminAccess(): Promise<User | null> {
   try {
+    if (!supabase) {
+      console.error('Supabase not configured')
+      return null
+    }
+
     const { data: { user: authUser } } = await supabase.auth.getUser()
     
     if (!authUser) {
@@ -35,6 +40,11 @@ export async function checkAdminAccess(): Promise<User | null> {
 
 export async function getCurrentUser(): Promise<User | null> {
   try {
+    if (!supabase) {
+      console.error('Supabase not configured')
+      return null
+    }
+
     const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
     
     if (authError || !authUser) {
@@ -60,6 +70,10 @@ export async function getCurrentUser(): Promise<User | null> {
 
 export async function signOut() {
   try {
+    if (!supabase) {
+      console.error('Supabase not configured')
+      return
+    }
     await supabase.auth.signOut()
   } catch (error) {
     console.error('Error signing out:', error)
@@ -69,6 +83,10 @@ export async function signOut() {
 // Test function to check if Supabase is working
 export async function testSupabaseConnection() {
   try {
+    if (!supabase) {
+      console.error('Supabase not configured')
+      return { success: false, error: 'Supabase not configured' }
+    }
     const { data, error } = await supabase.from('users').select('count').limit(1)
     return { success: !error, error }
   } catch (error) {
@@ -85,6 +103,11 @@ export function onAuthStateChange(callback: (user: User | null) => void) {
   // Prevent multiple listeners
   if (isListening && authStateListener) {
     return authStateListener
+  }
+
+  if (!supabase) {
+    console.error('Supabase not configured')
+    return { data: { subscription: { unsubscribe: () => {} } } }
   }
 
   isListening = true
@@ -117,6 +140,11 @@ export function onAuthStateChange(callback: (user: User | null) => void) {
 // Function to get full user data without triggering auth loops
 export async function getFullUserData(userId: string): Promise<User | null> {
   try {
+    if (!supabase) {
+      console.error('Supabase not configured')
+      return null
+    }
+
     const { data: userData, error } = await supabase
       .from('users')
       .select('*')

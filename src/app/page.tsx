@@ -5,6 +5,11 @@ import { OperatorPreviewCard } from '@/types'
 // Server component to fetch preview cards
 async function getFeaturedOperators(): Promise<OperatorPreviewCard[]> {
   try {
+    if (!supabase) {
+      console.error('Supabase not configured')
+      return []
+    }
+
     const { data, error } = await supabase
       .from('operator_preview_cards')
       .select(`

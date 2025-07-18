@@ -1,11 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@/contexts/ToastContext'
 import { supabase } from '@/lib/supabase'
 import { Company } from '@/types'
-import { useToast } from '@/contexts/ToastContext'
-import { useAuth } from '@/contexts/AuthContext'
 
 export default function OperatorDashboard() {
   const { user } = useAuth()

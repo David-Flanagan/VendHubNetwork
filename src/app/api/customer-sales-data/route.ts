@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
           }
 
           return nayaxProductName.replace(/\(\d+\s*=\s*\d+\.\d+\)\s*\n?/g, '').trim() || 'Unknown Product'
-        } catch (error) {
+        } catch {
           return nayaxProductName.replace(/\(\d+\s*=\s*\d+\.\d+\)\s*\n?/g, '').trim() || 'Unknown Product'
         }
       }
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
           }
 
           return 'N/A'
-        } catch (error) {
+        } catch {
           return 'N/A'
         }
       }
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
           }
 
           return 'N/A'
-        } catch (error) {
+        } catch {
           return 'N/A'
         }
       }

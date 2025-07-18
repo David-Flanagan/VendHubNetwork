@@ -30,7 +30,6 @@ export default function MachineTemplatesPage() {
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
-  const [machineCategories, setMachineCategories] = useState<Array<{id: string, name: string}>>([])
   const router = useRouter()
 
   useEffect(() => {

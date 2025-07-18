@@ -3,49 +3,47 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useToast } from '@/contexts/ToastContext'
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
   const router = useRouter()
+  const { showToast } = useToast()
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setError('')
-
+    
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
-        password,
+        password
       })
 
-      if (error) {
-        setError(error.message)
+      if (signInError) {
+        showToast(signInError.message, 'error')
         return
       }
 
       if (data.user) {
-        // Check if user has admin role
-        const { data: userData, error: userError } = await supabase
+        // Check if user is admin
+        const { data: profile } = await supabase
           .from('users')
           .select('role')
           .eq('id', data.user.id)
           .single()
 
-        if (userError || userData?.role !== 'admin') {
-          setError('Access denied. Admin privileges required.')
+        if (profile?.role === 'admin') {
+          router.push('/admin/dashboard')
+        } else {
+          showToast('Access denied. Admin privileges required.', 'error')
           await supabase.auth.signOut()
-          return
         }
-
-        // Redirect to admin dashboard
-        router.push('/admin/dashboard')
       }
-    } catch (error) {
-      setError('An unexpected error occurred')
+    } catch (err) {
+      showToast('An unexpected error occurred', 'error')
     } finally {
       setLoading(false)
     }
@@ -68,12 +66,7 @@ export default function AdminLogin() {
           </p>
         </div>
         
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-              {error}
-            </div>
-          )}
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           
           <div className="space-y-4">
             <div>

@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
-import { CustomerMachine } from '@/types'
+import { supabase } from '@/lib/supabase'
+import { formatDate } from '@/lib/date-utils'
 
 type TimePeriod = 'today' | 'yesterday' | 'this-week' | 'last-week' | 'this-month' | 'last-month' | 'this-year' | 'last-year' | 'custom'
 
@@ -124,14 +124,6 @@ export default function MachineSalesPage() {
     }
   }
 
-  const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    })
-  }
-
   const formatTransactionTime = (transaction: any): string => {
     // Use authorization_datetime from database
     if (transaction.authorization_datetime) {
@@ -152,58 +144,7 @@ export default function MachineSalesPage() {
     return `$${parseFloat(amount).toFixed(2)}`
   }
 
-  // Extract MDB code from Nayax product name
-  const extractMdbCode = (nayaxProductName: string): string | null => {
-    if (!nayaxProductName) return null
-    
-    // Extract the number before "=" in parentheses: "Dry Oil SPF 15(3 = 0.15)" -> "3"
-    const match = nayaxProductName.match(/\((\d+)\s*=\s*\d+\.\d+\)/)
-    return match ? match[1] : null
-  }
 
-  // Look up product name from slot configuration using MDB code
-  const getProductNameFromSlotConfig = (machine: any, mdbCode: string): string => {
-    console.log('Looking up product for MDB code:', mdbCode)
-    console.log('Machine slot configuration type:', typeof machine?.slot_configuration)
-    
-    if (!machine?.slot_configuration || !mdbCode) {
-      console.log('Missing slot configuration or MDB code')
-      return 'Unknown Product'
-    }
-    
-    try {
-      const slotConfig = typeof machine.slot_configuration === 'string' 
-        ? JSON.parse(machine.slot_configuration) 
-        : machine.slot_configuration
-      
-      console.log('Parsed slot configuration:', slotConfig)
-      
-      // Handle the nested structure: rows[0].slots
-      let slots = []
-      if (slotConfig.rows && slotConfig.rows[0] && slotConfig.rows[0].slots) {
-        slots = slotConfig.rows[0].slots
-      } else if (slotConfig.slots) {
-        slots = slotConfig.slots
-      }
-      
-      console.log('Available slots:', slots)
-      
-      // Look for a slot that has this MDB code
-      for (const slot of slots) {
-        console.log('Checking slot:', slot)
-        if (slot.mdb_code === mdbCode || slot.mdb_code === parseInt(mdbCode)) {
-          console.log('Found matching slot:', slot)
-          return slot.product_name || 'Unknown Product'
-        }
-      }
-      
-      console.log('No matching slot found for MDB code:', mdbCode)
-      return 'Unknown Product'
-    } catch (error) {
-      console.warn('Error parsing slot configuration:', error)
-      return 'Unknown Product'
-    }
-  }
 
   // Get proper product name
   const getProductName = (transaction: any, mappedMachine: any): string => {

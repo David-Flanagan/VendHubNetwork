@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -10,8 +10,7 @@ import OnboardingStep2 from '@/components/customers/onboarding/OnboardingStep2'
 import OnboardingStep3 from '@/components/customers/onboarding/OnboardingStep3'
 import OnboardingStep4 from '@/components/customers/onboarding/OnboardingStep4'
 
-
-export default function CustomerOnboarding() {
+function OnboardingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
@@ -322,5 +321,13 @@ export default function CustomerOnboarding() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function CustomerOnboarding() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <OnboardingContent />
+    </Suspense>
   )
 } 

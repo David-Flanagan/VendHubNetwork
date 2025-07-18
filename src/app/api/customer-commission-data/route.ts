@@ -153,7 +153,7 @@ async function fetchCommissionCashouts(
   endDate: Date, 
   operatorFilter: string
 ) {
-  let query = supabase
+  const query = supabase
     .from('commission_cashouts')
     .select(`
       *,

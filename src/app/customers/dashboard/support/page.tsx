@@ -7,10 +7,8 @@ export default function CustomerSupportPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Support</h1>
-        <p className="mt-2 text-gray-600">
-          Get help and contact support for your vending machine operations
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Support & Help</h1>
+        <p className="text-gray-600">Get help and contact our support team</p>
       </div>
 
       {/* Placeholder Content */}

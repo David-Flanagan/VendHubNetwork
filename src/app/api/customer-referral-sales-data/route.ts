@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const machineIds = machines.map(m => m.id)
 
     // Build transactions query
-    let transactionsQuery = supabase
+    const transactionsQuery = supabase
       .from('nayax_transactions')
       .select('*')
       .in('customer_machine_id', machineIds)
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
           }
 
           return nayaxProductName.replace(/\(\d+\s*=\s*\d+\.\d+\)\s*\n?/g, '').trim() || 'Unknown Product'
-        } catch (error) {
+        } catch {
           return nayaxProductName.replace(/\(\d+\s*=\s*\d+\.\d+\)\s*\n?/g, '').trim() || 'Unknown Product'
         }
       }
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
           }
 
           return 0
-        } catch (error) {
+        } catch {
           return 0
         }
       }

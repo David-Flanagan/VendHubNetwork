@@ -1,15 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import React, { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Company } from '@/types'
 import { geocodeAddress } from '@/lib/geocoding'
 import { useToast } from '@/contexts/ToastContext'
 import CustomerMap from '@/components/maps/CustomerMap'
 
-export default function BrowseOperatorsPage() {
+function BrowseOperatorsContent() {
+  const router = useRouter()
   const searchParams = useSearchParams()
+  const { user } = useAuth()
   const { showToast } = useToast()
   
   // All operators (for bottom section)
@@ -744,5 +746,13 @@ export default function BrowseOperatorsPage() {
         </section>
       </div>
     </div>
+  )
+}
+
+export default function BrowseOperatorsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <BrowseOperatorsContent />
+    </Suspense>
   )
 } 

@@ -144,7 +144,13 @@ export default function MachineSalesPage() {
     return `$${parseFloat(amount).toFixed(2)}`
   }
 
-
+  // Extract MDB code from Nayax product name (e.g., "Dry Oil SPF 15(3 = 0.15)" -> "3")
+  const extractMdbCode = (productName: string): string | null => {
+    if (!productName) return null
+    
+    const match = productName.match(/\((\d+)\s*=\s*\d+\.\d+\)/)
+    return match ? match[1] : null
+  }
 
   // Get proper product name
   const getProductName = (transaction: any, mappedMachine: any): string => {

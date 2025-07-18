@@ -90,7 +90,7 @@ export default function IntegrationsSettingsPage() {
 
   if (loading) {
     return (
-      <RouteGuard allowedRoles={['operator']}>
+      <RouteGuard requiredRoles={['operator']}>
         <div className="p-6">
           <div className="max-w-4xl mx-auto">
             <div className="animate-pulse">
@@ -109,7 +109,7 @@ export default function IntegrationsSettingsPage() {
   }
 
   return (
-    <RouteGuard allowedRoles={['operator']}>
+    <RouteGuard requiredRoles={['operator']}>
       <div className="p-6">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">

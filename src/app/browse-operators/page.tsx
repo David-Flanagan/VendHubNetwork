@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { Company } from '@/types'
 import { geocodeAddress } from '@/lib/geocoding'
 import { useToast } from '@/contexts/ToastContext'
+import { useAuth } from '@/contexts/AuthContext'
 import CustomerMap from '@/components/maps/CustomerMap'
 
 function BrowseOperatorsContent() {

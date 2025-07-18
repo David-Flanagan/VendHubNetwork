@@ -112,7 +112,7 @@ export default function BusinessCredentialsSettingsPage() {
 
   if (loading) {
     return (
-      <RouteGuard allowedRoles={['operator']}>
+      <RouteGuard requiredRoles={['operator']}>
         <div className="p-6">
           <div className="max-w-4xl mx-auto">
             <div className="animate-pulse">
@@ -131,7 +131,7 @@ export default function BusinessCredentialsSettingsPage() {
   }
 
   return (
-    <RouteGuard allowedRoles={['operator']}>
+    <RouteGuard requiredRoles={['operator']}>
       <div className="p-6">
         <div className="max-w-4xl mx-auto">
           {/* Header */}

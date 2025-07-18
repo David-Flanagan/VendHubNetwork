@@ -68,7 +68,7 @@ export default function ProfileManagementPage() {
                 See how your company profile appears to customers and potential clients.
               </p>
               <a
-                href={`/${encodeURIComponent(user?.company?.name || 'company')}`}
+                href={`/${encodeURIComponent('company')}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"

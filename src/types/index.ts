@@ -105,7 +105,7 @@ export interface ServiceArea {
   name?: string
   method: ServiceAreaMethod
   
-  // For polygon method
+  // For polygon method only (radius method was removed)
   polygon_geometry?: GeoJSONPolygon
   
   created_at: string

@@ -34,20 +34,9 @@ const MapComponent = ({ company, serviceAreas }: MapComponentProps) => {
         return 9 // Default zoom for companies without service areas
       }
       
-      // Find the largest service area to determine zoom
-      let maxRadius = 0
-      serviceAreas.forEach(area => {
-        if (area.method === 'radius' && area.radius_meters) {
-          const radiusMiles = area.radius_meters / 1609.34
-          maxRadius = Math.max(maxRadius, radiusMiles)
-        }
-      })
-      
-      if (maxRadius <= 25) return 8
-      if (maxRadius <= 50) return 7
-      if (maxRadius <= 100) return 6
-      if (maxRadius <= 200) return 5
-      return 4
+      // For polygon service areas, use a default zoom level
+      // since we can't easily calculate the "size" of polygons
+      return 8
     }
 
     const mapOptions: google.maps.MapOptions = {
@@ -87,71 +76,7 @@ const MapComponent = ({ company, serviceAreas }: MapComponentProps) => {
 
     // Render each service area
     serviceAreas.forEach((area, index) => {
-      if (area.method === 'radius' && area.center_lat && area.center_lng && area.radius_meters) {
-        // Create circle for radius service area
-        const serviceAreaCircle = new google.maps.Circle({
-          strokeColor: '#3B82F6',
-          strokeOpacity: 0.8,
-          strokeWeight: 2,
-          fillColor: '#3B82F6',
-          fillOpacity: 0.2,
-          map: newMap,
-          center: { lat: area.center_lat!, lng: area.center_lng! },
-          radius: area.radius_meters
-        })
-
-        // Add distance markers at cardinal points
-        const radiusMiles = area.radius_meters / 1609.34
-        const addDistanceMarker = (bearing: number, distance: number) => {
-          if (!area.center_lat || !area.center_lng) return
-          
-          const lat1 = area.center_lat * Math.PI / 180
-          const lon1 = area.center_lng * Math.PI / 180
-          const brng = bearing * Math.PI / 180
-          const R = 3959 // Earth's radius in miles
-
-          const lat2 = Math.asin(
-            Math.sin(lat1) * Math.cos(distance / R) +
-            Math.cos(lat1) * Math.sin(distance / R) * Math.cos(brng)
-          )
-
-          const lon2 = lon1 + Math.atan2(
-            Math.sin(brng) * Math.sin(distance / R) * Math.cos(lat1),
-            Math.cos(distance / R) - Math.sin(lat1) * Math.sin(lat2)
-          )
-
-          const markerPosition = {
-            lat: lat2 * 180 / Math.PI,
-            lng: lon2 * 180 / Math.PI
-          }
-
-          new google.maps.Marker({
-            position: markerPosition,
-            map: newMap,
-            label: {
-              text: `${distance.toFixed(1)} mi`,
-              color: '#3B82F6',
-              fontSize: '12px',
-              fontWeight: 'bold'
-            },
-            icon: {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 0,
-              fillColor: '#3B82F6',
-              fillOpacity: 0.8,
-              strokeColor: '#3B82F6',
-              strokeWeight: 2
-            }
-          })
-        }
-
-        // Add distance markers at N, S, E, W
-        addDistanceMarker(0, radiusMiles) // North
-        addDistanceMarker(180, radiusMiles) // South
-        addDistanceMarker(90, radiusMiles) // East
-        addDistanceMarker(270, radiusMiles) // West
-
-      } else if (area.method === 'polygon' && area.polygon_geometry) {
+      if (area.method === 'polygon' && area.polygon_geometry) {
         // Create polygon for polygon service area
         const polygon = new google.maps.Polygon({
           paths: area.polygon_geometry.coordinates[0].map(coord => ({

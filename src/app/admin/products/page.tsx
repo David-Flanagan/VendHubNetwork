@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/contexts/ToastContext'
+import { GlobalProduct, ProductType, ProductCategory } from '@/types'
 
 interface GlobalProductWithType extends GlobalProduct {
   product_type_name?: string

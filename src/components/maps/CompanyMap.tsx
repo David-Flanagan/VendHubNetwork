@@ -26,20 +26,9 @@ const MapComponent = ({ company }: MapComponentProps) => {
       lng: company.longitude
     }
 
-    // Calculate appropriate zoom level based on service area radius
+    // Calculate appropriate zoom level
     const calculateZoomLevel = () => {
-      if (!company.service_area_radius_miles || company.service_area_radius_miles <= 0) {
-        return 9 // Default zoom for companies without service area (more zoomed out)
-      }
-      
-      // Scale zoom based on service area radius
-      // Larger radius = more zoomed out (lower zoom numbers)
-      const radius = company.service_area_radius_miles
-      if (radius <= 25) return 8
-      if (radius <= 50) return 7
-      if (radius <= 100) return 6
-      if (radius <= 200) return 5
-      return 4 // For very large service areas
+      return 9 // Default zoom level
     }
 
     const mapOptions: google.maps.MapOptions = {
@@ -77,67 +66,7 @@ const MapComponent = ({ company }: MapComponentProps) => {
       }
     })
 
-    // Add service area circle if radius is set
-    if (company.service_area_radius_miles && company.service_area_radius_miles > 0) {
-      const serviceAreaCircle = new google.maps.Circle({
-        strokeColor: '#3B82F6',
-        strokeOpacity: 0.8,
-        strokeWeight: 2,
-        fillColor: '#3B82F6',
-        fillOpacity: 0.2,
-        map: newMap,
-        center: companyLocation,
-        radius: company.service_area_radius_miles * 1609.34 // Convert miles to meters
-      })
-
-      // Add distance markers at cardinal points
-      const addDistanceMarker = (bearing: number, distance: number) => {
-        const lat1 = companyLocation.lat * Math.PI / 180
-        const lon1 = companyLocation.lng * Math.PI / 180
-        const brng = bearing * Math.PI / 180
-        const R = 3959 // Earth's radius in miles
-
-        const lat2 = Math.asin(
-          Math.sin(lat1) * Math.cos(distance / R) +
-          Math.cos(lat1) * Math.sin(distance / R) * Math.cos(brng)
-        )
-
-        const lon2 = lon1 + Math.atan2(
-          Math.sin(brng) * Math.sin(distance / R) * Math.cos(lat1),
-          Math.cos(distance / R) - Math.sin(lat1) * Math.sin(lat2)
-        )
-
-        const markerPosition = {
-          lat: lat2 * 180 / Math.PI,
-          lng: lon2 * 180 / Math.PI
-        }
-
-        new google.maps.Marker({
-          position: markerPosition,
-          map: newMap,
-          label: {
-            text: `${distance} mi`,
-            color: '#3B82F6',
-            fontSize: '12px',
-            fontWeight: 'bold'
-          },
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 0,
-            fillColor: '#3B82F6',
-            fillOpacity: 0.8,
-            strokeColor: '#3B82F6',
-            strokeWeight: 2
-          }
-        })
-      }
-
-      // Add distance markers at N, S, E, W
-      addDistanceMarker(0, company.service_area_radius_miles) // North
-      addDistanceMarker(180, company.service_area_radius_miles) // South
-      addDistanceMarker(90, company.service_area_radius_miles) // East
-      addDistanceMarker(270, company.service_area_radius_miles) // West
-    }
+    // Service areas are now handled by ServiceAreasMap component
 
     return () => {
       if (mapInstanceRef.current) {
@@ -202,18 +131,6 @@ export default function CompanyMap({ company, className = '' }: CompanyMapProps)
             <div className="w-4 h-4 bg-blue-600 rounded-full mr-2"></div>
             <span className="text-gray-700">Warehouse Location</span>
           </div>
-          {company.service_area_radius_miles && company.service_area_radius_miles > 0 && (
-            <>
-              <div className="flex items-center">
-                <div className="w-4 h-4 bg-blue-600 bg-opacity-20 border-2 border-blue-600 rounded-full mr-2"></div>
-                <span className="text-gray-700">Service Area ({company.service_area_radius_miles} miles)</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-4 h-4 bg-blue-600 rounded-full mr-2"></div>
-                <span className="text-gray-700">Distance Markers</span>
-              </div>
-            </>
-          )}
         </div>
       </div>
     </div>

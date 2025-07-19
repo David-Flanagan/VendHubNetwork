@@ -60,6 +60,10 @@ export default function CashoutHistoryPage() {
       setLoading(true)
 
       // Build query based on status filter
+      if (!supabase) {
+        throw new Error('Supabase not configured')
+      }
+      
       let query = supabase
         .from('payout_requests')
         .select(`
